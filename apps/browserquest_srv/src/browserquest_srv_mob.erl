@@ -12,7 +12,7 @@
 -include("../include/browserquest.hrl").
 
 %% API
--export([start_link/2, receive_damage/1]).
+-export([start_link/4, receive_damage/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -39,8 +39,8 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
-start_link(Id, WebsocketServer) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [Id, WebsocketServer], []).
+start_link(Id, Type, X, Y) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [Id, Type, X, Y], []).
 
 %%%===================================================================
 %%% Game API
