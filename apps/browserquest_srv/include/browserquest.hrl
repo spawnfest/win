@@ -100,4 +100,4 @@
 -define(GOLDENSWORD, 63).
 -define(MORNINGSTAR, 64).
 -define(AXE, 65).
--define(BLUESWORD, 66
+-define(BLUESWORD, 66).

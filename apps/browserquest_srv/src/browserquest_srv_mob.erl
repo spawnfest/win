@@ -52,12 +52,13 @@ receive_damage(Amounth) ->
 %%%===================================================================
 init([Id, Type, X, Y]) ->
     %TODO check what to get from mob's Super in js
-    State = #state{id = Id, type = Type, pos_x = X, pos_y = Y},
-    {ok, do_init(Type, State)}.
+%    State = #state{id = Id, type = Type, pos_x = X, pos_y = Y},
+%    {ok, do_init(Type, State)}.
+    ok.
 
 
-handle_call({on_player_connect, Player}, _From, #state{map = Map}) ->
-    {reply, ok, do_on_player_connect(Player, Map)};
+%handle_call({on_player_connect, Player}, _From, #state{map = Map}) ->
+%    {reply, ok, do_on_player_connect(Player, Map)};
 
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
@@ -65,9 +66,9 @@ handle_call(Request, From, State) ->
     {reply, Reply, State}.
 
 handle_cast({receive_damage, Amounth}, State) ->
-    {reply, ok, do_receive_damage(Amounth, State)}.
-handle_cast(Msg, State) ->
-    browserquest_srv_util:unexpected_cast(?MODULE, Msg, State),
+%    {reply, ok, do_receive_damage(Amounth, State)}.
+%handle_cast(Msg, State) ->
+ %   browserquest_srv_util:unexpected_cast(?MODULE, Msg, State),
     {noreply, State}.
 
 handle_info(Info, State) ->
@@ -97,8 +98,8 @@ code_change(_OldVsn, State, _Extra) ->
 %% Calculate the item dropped. The Item list needs to be sorted in ascending
 %% order for it to work properly.
 item([], _) -> undefined;
-item([{Item, Chance} | Items], Rand) if Rand <= Chance ->
-        Item;
+%item([{Item, Chance} | Items], Rand) if Rand <= Chance ->
+%        Item;
 item([_ | Items], Rand) ->
     item(Items, Rand).
 
@@ -253,13 +254,13 @@ do_init(_Type, State) ->
     %}
 
 do_receive_damage(Amounth, State) ->
-    State#state.hitpoints -= Amounth,
-    case State#state.hitpoints <= 0 of
-        true -> %DEATH!
-            State#state.is_dead = true;
-        false ->
-            State
-    end.
+%    State#state.hitpoints -= Amounth,
+%    case State#state.hitpoints <= 0 of
+%        true -> %DEATH!
+%            State#state.is_dead = true;
+%        false ->
+            State.
+%    end.
 
     %hates: function(playerId) {
     %    return _.any(this.hatelist, function(obj) { 
