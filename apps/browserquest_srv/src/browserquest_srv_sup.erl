@@ -51,20 +51,20 @@ start_link() ->
 %%--------------------------------------------------------------------
 init([]) ->
     RestartStrategy = one_for_one,
-    MaxRestarts = 1000,
+    MaxRestarts = 2,
     MaxSecondsBetweenRestarts = 3600,
-
+    
     SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
 
     Restart = permanent,
     Shutdown = 2000,
     Type = worker,
-
-    Server = {'browserquest_srv_server',
-              {'browserquest_srv_server', start_link, []},
-	      Restart, Shutdown, Type, ['browserquest_srv_server']},
+    {ok, MapFile} = application:get_env(world_map),
+    Map = {browserquest_srv_map,
+           {browserquest_srv_map, start_link, [MapFile]},
+           Restart, Shutdown, Type, [browserquest_srv_map]},
     
-    {ok, {SupFlags, [Server]}}.
+    {ok, {SupFlags, [Map]}}.
 
 %%%===================================================================
 %%% Internal functions
