@@ -122,136 +122,111 @@ do_init(?SKELETON, State) ->
                 item = item(Drops, random:uniform(100)),
                 armor = 2,
                 weapon = 2};
+do_init(?GOBLIN, State) ->
+    Drops = [{?FIREPOTION, 5},
+             {?AXE, 15},
+             {?MAILARMOR, 35},
+             {?FLASK, 75}],
+
+    State#state{hitpoints = 90,
+                item = item(Drops, random:uniform(100)),
+                armor = 2,
+                weapon = 1};
+do_init(?OGRE, State) ->
+    Drops = [{?FIREPOTION, 5},
+             {?BURGER, 15},
+             {?PLATEARMOR, 35},
+             {?MORNINGSTAR, 55},
+             {?FLASK, 100}],
+
+    State#state{hitpoints = 200,
+                item = item(Drops, random:uniform(100)),
+                armor = 3,
+                weapon = 2};
+do_init(?SPECTRE, State) ->
+    Drops = [{?FIREPOTION, 5},
+             {?REDSWORD, 35},
+             {?FLASK, 65},
+             {?REDARMOR, 100}],
+
+    State#state{hitpoints = 250,
+                item = item(Drops, random:uniform(100)),
+                armor = 2,
+                weapon = 4};
+do_init(?DEATHKNIGHT, State) ->
+    Drops = [{?BURGER, 95},
+             {?FIREPOTION, 100}],
+
+    State#state{hitpoints = 250,
+                item = item(Drops, random:uniform(100)),
+                armor = 3,
+                weapon = 3};
+do_init(?CRAB, State) ->
+    Drops = [{?FIREPOTION, 5},
+             {?LEATHERARMOR, 15}
+             {?AXE, 35},
+             {?FLASK, 85}],
+
+    State#state{hitpoints = 60,
+                item = item(Drops, random:uniform(100)),
+                armor = 2,
+                weapon = 1};
+do_init(?SNAKE, State) ->
+    Drops = [{?FIREPOTION, 5},
+             {?MORNINGSTAR, 15}
+             {?MAILARMOR, 25},
+             {?FLASK, 75}],
+
+    State#state{hitpoints = 60,
+                item = item(Drops, random:uniform(100)),
+                armor = 2,
+                weapon = 1};
+do_init(?SKELETON2, State) ->
+    Drops = [{?FIREPOTION, 5},
+             {?BLUESWORD, 20}
+             {?PLATEARMOR, 35},
+             {?FLASK, 95}],
+
+    State#state{hitpoints = 200,
+                item = item(Drops, random:uniform(100)),
+                armor = 3,
+                weapon = 3};
+do_init(?EYE, State) ->
+    Drops = [{?FIREPOTION, 5},
+             {?REDSWORD, 15}
+             {?REDARMOR, 35},
+             {?FLASK, 85}],
+
+    State#state{hitpoints = 200,
+                item = item(Drops, random:uniform(100)),
+                armor = 3,
+                weapon = 3};
+do_init(?BAT, State) ->
+    Drops = [{?FIREPOTION, 5},
+             {?AXE, 15}
+             {?FLASK, 65}],
+
+    State#state{hitpoints = 80,
+                item = item(Drops, random:uniform(100)),
+                armor = 2,
+                weapon = 1};
+do_init(?WIZARD, State) ->
+    Drops = [{?FIREPOTION, 5},
+             {?PLATEARMOR, 25}
+             {?FLASK, 75}],
+
+    State#state{hitpoints = 100,
+                item = item(Drops, random:uniform(100)),
+                armor = 2,
+                weapon = 6};
+do_init(?BOSS, State) ->
+    State#state{hitpoints = 100,
+                item = ?GOLDENSWORD,
+                armor = 2,
+                weapon = 6};
 do_init(_Type, State) ->
     lager:error("Unknown mob type initialization"),
     State.
-
-%TODO Translate initializations
-    %goblin: {
-    %    drops: {
-    %        flask: 50,
-    %        leatherarmor: 20,
-    %        axe: 10,
-    %        firepotion: 5
-    %    },
-    %    hp: 90,
-    %    armor: 2,
-    %    weapon: 1
-    %},
-    %
-    %ogre: {
-    %    drops: {
-    %        burger: 10,
-    %        flask: 50,
-    %        platearmor: 20,
-    %        morningstar: 20,
-    %        firepotion: 5
-    %    },
-    %    hp: 200,
-    %    armor: 3,
-    %    weapon: 2
-    %},
-    %
-    %spectre: {
-    %    drops: {
-    %        flask: 30,
-    %        redarmor: 40,
-    %        redsword: 30,
-    %        firepotion: 5
-    %    },
-    %    hp: 250,
-    %    armor: 2,
-    %    weapon: 4
-    %},
-    %
-    %deathknight: {
-    %    drops: {
-    %        burger: 95,
-    %        firepotion: 5
-    %    },
-    %    hp: 250,
-    %    armor: 3,
-    %    weapon: 3
-    %},
-    %
-    %crab: {
-    %    drops: {
-    %        flask: 50,
-    %        axe: 20,
-    %        leatherarmor: 10,
-    %        firepotion: 5
-    %    },
-    %    hp: 60,
-    %    armor: 2,
-    %    weapon: 1
-    %},
-    %
-    %snake: {
-    %    drops: {
-    %        flask: 50,
-    %        mailarmor: 10,
-    %        morningstar: 10,
-    %        firepotion: 5
-    %    },
-    %    hp: 150,
-    %    armor: 3,
-    %    weapon: 2
-    %},
-    %
-    %skeleton2: {
-    %    drops: {
-    %        flask: 60,
-    %        platearmor: 15,
-    %        bluesword: 15,
-    %        firepotion: 5
-    %    },
-    %    hp: 200,
-    %    armor: 3,
-    %    weapon: 3
-    %},
-    %
-    %eye: {
-    %    drops: {
-    %        flask: 50,
-    %        redarmor: 20,
-    %        redsword: 10,
-    %        firepotion: 5
-    %    },
-    %    hp: 200,
-    %    armor: 3,
-    %    weapon: 3
-    %},
-    %
-    %bat: {
-    %    drops: {
-    %        flask: 50,
-    %        axe: 10,
-    %        firepotion: 5
-    %    },
-    %    hp: 80,
-    %    armor: 2,
-    %    weapon: 1
-    %},
-    %
-    %wizard: {
-    %    drops: {
-    %        flask: 50,
-    %        platearmor: 20,
-    %        firepotion: 5
-    %    },
-    %    hp: 100,
-    %    armor: 2,
-    %    weapon: 6
-    %},
-    %
-    %boss: {
-    %    drops: {
-    %        goldensword: 100
-    %    },
-    %    hp: 700,
-    %    armor: 6,
-    %    weapon: 7
-    %}
 
 do_receive_damage(Amounth, State) ->
 %    State#state.hitpoints -= Amounth,
