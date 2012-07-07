@@ -21,6 +21,7 @@
 -define(SERVER, ?MODULE). 
 
 -record(state, {id,
+                type,
                 hitpoints,
                 pos_x, pos_y,
                 armor,
@@ -52,13 +53,8 @@ receive_damage(Amounth) ->
 %%%===================================================================
 init([Id, Type, X, Y]) ->
     %TODO check what to get from mob's Super in js
-%    State = #state{id = Id, type = Type, pos_x = X, pos_y = Y},
-%    {ok, do_init(Type, State)}.
-    ok.
-
-
-%handle_call({on_player_connect, Player}, _From, #state{map = Map}) ->
-%    {reply, ok, do_on_player_connect(Player, Map)};
+    State = #state{id = Id, type = Type, pos_x = X, pos_y = Y},
+    {ok, do_init(Type, State)}.
 
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
@@ -66,9 +62,9 @@ handle_call(Request, From, State) ->
     {reply, Reply, State}.
 
 handle_cast({receive_damage, Amounth}, State) ->
-%    {reply, ok, do_receive_damage(Amounth, State)}.
-%handle_cast(Msg, State) ->
- %   browserquest_srv_util:unexpected_cast(?MODULE, Msg, State),
+    {reply, ok, do_receive_damage(Amounth, State)};
+handle_cast(Msg, State) ->
+    browserquest_srv_util:unexpected_cast(?MODULE, Msg, State),
     {noreply, State}.
 
 handle_info(Info, State) ->
@@ -163,7 +159,7 @@ do_init(?DEATHKNIGHT, State) ->
                 weapon = 3};
 do_init(?CRAB, State) ->
     Drops = [{?FIREPOTION, 5},
-             {?LEATHERARMOR, 15}
+             {?LEATHERARMOR, 15},
              {?AXE, 35},
              {?FLASK, 85}],
 
@@ -173,7 +169,7 @@ do_init(?CRAB, State) ->
                 weapon = 1};
 do_init(?SNAKE, State) ->
     Drops = [{?FIREPOTION, 5},
-             {?MORNINGSTAR, 15}
+             {?MORNINGSTAR, 15},
              {?MAILARMOR, 25},
              {?FLASK, 75}],
 
@@ -183,7 +179,7 @@ do_init(?SNAKE, State) ->
                 weapon = 1};
 do_init(?SKELETON2, State) ->
     Drops = [{?FIREPOTION, 5},
-             {?BLUESWORD, 20}
+             {?BLUESWORD, 20},
              {?PLATEARMOR, 35},
              {?FLASK, 95}],
 
@@ -193,7 +189,7 @@ do_init(?SKELETON2, State) ->
                 weapon = 3};
 do_init(?EYE, State) ->
     Drops = [{?FIREPOTION, 5},
-             {?REDSWORD, 15}
+             {?REDSWORD, 15},
              {?REDARMOR, 35},
              {?FLASK, 85}],
 
@@ -203,7 +199,7 @@ do_init(?EYE, State) ->
                 weapon = 3};
 do_init(?BAT, State) ->
     Drops = [{?FIREPOTION, 5},
-             {?AXE, 15}
+             {?AXE, 15},
              {?FLASK, 65}],
 
     State#state{hitpoints = 80,
@@ -212,7 +208,7 @@ do_init(?BAT, State) ->
                 weapon = 1};
 do_init(?WIZARD, State) ->
     Drops = [{?FIREPOTION, 5},
-             {?PLATEARMOR, 25}
+             {?PLATEARMOR, 25},
              {?FLASK, 75}],
 
     State#state{hitpoints = 100,
@@ -228,14 +224,14 @@ do_init(_Type, State) ->
     lager:error("Unknown mob type initialization"),
     State.
 
-do_receive_damage(Amounth, State) ->
-%    State#state.hitpoints -= Amounth,
-%    case State#state.hitpoints <= 0 of
-%        true -> %DEATH!
-%            State#state.is_dead = true;
-%        false ->
-            State.
-%    end.
+do_receive_damage(Amounth, S) ->
+    State = S#state{hitpoints = S#state.hitpoints - Amounth},
+    case State#state.hitpoints =< 0 of
+        true -> %DEATH!
+            State#state{is_dead = true};
+        false ->
+            State
+    end.
 
     %hates: function(playerId) {
     %    return _.any(this.hatelist, function(obj) { 
