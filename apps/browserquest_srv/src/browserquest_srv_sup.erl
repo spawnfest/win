@@ -60,10 +60,11 @@ init([]) ->
     Shutdown = 2000,
     Type = worker,
 
-    AChild = {'AName', {'AModule', start_link, []},
-	      Restart, Shutdown, Type, ['AModule']},
-
-    {ok, {SupFlags, [AChild]}}.
+    Server = {'browserquest_srv_server',
+              {'browserquest_srv_server', start_link, []},
+	      Restart, Shutdown, Type, ['browserquest_srv_server']},
+    
+    {ok, {SupFlags, [Server]}}.
 
 %%%===================================================================
 %%% Internal functions

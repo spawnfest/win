@@ -20,7 +20,7 @@ start(_StartType, _StartArgs) ->
     ListeningPort = 
 	case application:get_env(listening_port) of
 	    undefined ->
-		10100;
+		8000;
 	    {ok, Port} ->
 		Port
 	end,
@@ -29,11 +29,11 @@ start(_StartType, _StartArgs) ->
         {'_', browserquest_srv_handler, []}
     ]}],
     
-    lager:debug("Starting browserquest_srv on port ~p", [ListeningPort]),
+%%    lager:debug("Starting browserquest_srv on port ~p", [ListeningPort]),
 
     %% Name, NbAcceptors, Transport, TransOpts, Protocol, ProtoOpts
     %% Listen in 10100/tcp for http connections.
-    cowboy:start_listener(browserquest_srv_websocket, 100,
+    cowboy:start_listener(browserquest_srv_handler, 100,
         cowboy_tcp_transport, [{port, ListeningPort}],
         cowboy_http_protocol, [{dispatch, Dispatch}]
     ),
