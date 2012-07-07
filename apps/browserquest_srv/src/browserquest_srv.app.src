@@ -14,7 +14,10 @@
                  ]},
   {mod, { browserquest_srv_app, []}},
   {env, [
+        {world_map, "world_map.json"},
+	{riak_ip, "127.0.0.1"},
+  	{riak_port, 8087},
   	{listening_port, 8000},
-        {world_map, "world_map.json"}
+	{tick_time, 1000}
   ]}
  ]}.
