@@ -26,6 +26,7 @@
                 armor,
                 weapon,
                 hate,
+                item,
                 respawn_timout,
                 return_timeout,
                 is_dead = false,
@@ -51,7 +52,7 @@ receive_damage(Amounth) ->
 %%%===================================================================
 init([Id, Type, X, Y]) ->
     %TODO check what to get from mob's Super in js
-    State = #state{id = Id, type = Type, pos_x = X, pos_y = Y}
+    State = #state{id = Id, type = Type, pos_x = X, pos_y = Y},
     {ok, do_init(Type, State)}.
 
 
@@ -93,8 +94,163 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
+%% Calculate the item dropped. The Item list needs to be sorted in ascending
+%% order for it to work properly.
+item([], _) -> undefined;
+item([{Item, Chance} | Items], Rand) if Rand <= Chance ->
+        Item;
+item([_ | Items], Rand) ->
+    item(Items, Rand).
+
+do_init(?RAT, State) ->
+    Drops = [{?FIREPOTION, 5},
+             {?BURGER, 15},
+             {?FLASK, 55}],
+
+    State#state{hitpoints = 25,
+                item = item(Drops, random:uniform(100)),
+                armor = 1,
+                weapon = 1};
+do_init(?SKELETON, State) ->
+    Drops = [{?FIREPOTION, 5},
+             {?AXE, 25},
+             {?MAILARMOR, 35},
+             {?FLASK, 75}],
+
+    State#state{hitpoints = 110,
+                item = item(Drops, random:uniform(100)),
+                armor = 2,
+                weapon = 2};
 do_init(_Type, State) ->
+    lager:error("Unknown mob type initialization"),
     State.
+
+%TODO Translate initializations
+    %goblin: {
+    %    drops: {
+    %        flask: 50,
+    %        leatherarmor: 20,
+    %        axe: 10,
+    %        firepotion: 5
+    %    },
+    %    hp: 90,
+    %    armor: 2,
+    %    weapon: 1
+    %},
+    %
+    %ogre: {
+    %    drops: {
+    %        burger: 10,
+    %        flask: 50,
+    %        platearmor: 20,
+    %        morningstar: 20,
+    %        firepotion: 5
+    %    },
+    %    hp: 200,
+    %    armor: 3,
+    %    weapon: 2
+    %},
+    %
+    %spectre: {
+    %    drops: {
+    %        flask: 30,
+    %        redarmor: 40,
+    %        redsword: 30,
+    %        firepotion: 5
+    %    },
+    %    hp: 250,
+    %    armor: 2,
+    %    weapon: 4
+    %},
+    %
+    %deathknight: {
+    %    drops: {
+    %        burger: 95,
+    %        firepotion: 5
+    %    },
+    %    hp: 250,
+    %    armor: 3,
+    %    weapon: 3
+    %},
+    %
+    %crab: {
+    %    drops: {
+    %        flask: 50,
+    %        axe: 20,
+    %        leatherarmor: 10,
+    %        firepotion: 5
+    %    },
+    %    hp: 60,
+    %    armor: 2,
+    %    weapon: 1
+    %},
+    %
+    %snake: {
+    %    drops: {
+    %        flask: 50,
+    %        mailarmor: 10,
+    %        morningstar: 10,
+    %        firepotion: 5
+    %    },
+    %    hp: 150,
+    %    armor: 3,
+    %    weapon: 2
+    %},
+    %
+    %skeleton2: {
+    %    drops: {
+    %        flask: 60,
+    %        platearmor: 15,
+    %        bluesword: 15,
+    %        firepotion: 5
+    %    },
+    %    hp: 200,
+    %    armor: 3,
+    %    weapon: 3
+    %},
+    %
+    %eye: {
+    %    drops: {
+    %        flask: 50,
+    %        redarmor: 20,
+    %        redsword: 10,
+    %        firepotion: 5
+    %    },
+    %    hp: 200,
+    %    armor: 3,
+    %    weapon: 3
+    %},
+    %
+    %bat: {
+    %    drops: {
+    %        flask: 50,
+    %        axe: 10,
+    %        firepotion: 5
+    %    },
+    %    hp: 80,
+    %    armor: 2,
+    %    weapon: 1
+    %},
+    %
+    %wizard: {
+    %    drops: {
+    %        flask: 50,
+    %        platearmor: 20,
+    %        firepotion: 5
+    %    },
+    %    hp: 100,
+    %    armor: 2,
+    %    weapon: 6
+    %},
+    %
+    %boss: {
+    %    drops: {
+    %        goldensword: 100
+    %    },
+    %    hp: 700,
+    %    armor: 6,
+    %    weapon: 7
+    %}
 
 do_receive_damage(Amounth, State) ->
     State#state.hitpoints -= Amounth,
