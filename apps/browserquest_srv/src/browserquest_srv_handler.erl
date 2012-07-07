@@ -59,15 +59,18 @@ websocket_handle({text, Msg}, Req, State) ->
 % With this callback we can handle other kind of  
 % messages, like binary.  
 websocket_handle(_Any, Req, State) ->  
+    browserquest_srv_util:unexpected_info(
+      ?MODULE,"websocket binary received", State),
     {ok, Req, State}.  
   
 % Other messages from the system are handled here.  
-websocket_info(_Info, Req, State) ->  
+websocket_info(_Info, Req, State) ->
+    browserquest_srv_util:unexpected_info(?MODULE, _Info, State),
     {ok, Req, State, hibernate}.  
   
 websocket_terminate(_Reason, _Req, _State) ->  
     ok.  
 
 %%%===================================================================
-%%% Internal functions
+%%% Internal funxggctions
 %%%===================================================================
