@@ -27,9 +27,8 @@
 init({tcp, http}, Req, _Opts) ->  
     lager:debug("Request: ~p", [Req]),  
     % "upgrade" every request to websocket,  
-    % we're not interested in serving any other content.  
-    {upgrade, protocol, cowboy_http_websocket}.  
-
+    % we're not interested in serving any other content.
+    {upgrade, protocol, cowboy_http_websocket}.
 
 % Should never get here.  
 handle(Req, State) ->  
@@ -43,18 +42,20 @@ terminate(_Req, _State) ->
     ok.  
   
 % Called for every new websocket connection.  
-websocket_init(_Any, Req, []) ->  
-    lager:debug("New client"),  
+websocket_init(tcp, Req, []) ->  
+    lager:debug("New client: ~p", [Req]),  
     Req2 = cowboy_http_req:compact(Req),  
-    {ok, Req2, undefined, hibernate}.  
+    self() ! <<"Send gogo">>,
+    {ok, Req2, undefined}.  
   
-% Called when a text message arrives.  
 websocket_handle({text, Msg}, Req, State) ->  
+    Args = mochijson3:decode(Msg),
+    parse_action(Args),
     lager:debug("Received: ~p", [Msg]),  
     {reply,  
         {text, << "Responding to ", Msg/binary >>},  
         Req, State, hibernate  
-    };  
+    };
   
 % With this callback we can handle other kind of  
 % messages, like binary.  
@@ -63,6 +64,12 @@ websocket_handle(_Any, Req, State) ->
       ?MODULE,"websocket binary received", State),
     {ok, Req, State}.  
   
+
+% Called when a text message arrives. 
+websocket_info(<<"Send gogo">>, Req, State) ->
+    lager:debug("Sending 'go' message to client"),
+    {reply, {text, <<"go">>}, Req, State};
+
 % Other messages from the system are handled here.  
 websocket_info(_Info, Req, State) ->
     browserquest_srv_util:unexpected_info(?MODULE, _Info, State),
@@ -74,3 +81,10 @@ websocket_terminate(_Reason, _Req, _State) ->
 %%%===================================================================
 %%% Internal funxggctions
 %%%===================================================================
+parse_action([0, Name, X, Y]) ->
+    %% This is a player call
+    ok;
+parse_action(ActionList) ->
+    lager:error("Faulty actionlist: ~p", [ActionList]),
+    exit({faulty_actionlist, ActionList}).
+
