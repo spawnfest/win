@@ -11,6 +11,8 @@
 -behaviour(cowboy_http_handler).  
 -behaviour(cowboy_http_websocket_handler). 
 
+-include("../include/browserquest.hrl").
+
 % Behaviour cowboy_http_handler  
 -export([init/3, handle/2, terminate/2]).  
   
@@ -50,12 +52,9 @@ websocket_init(tcp, Req, []) ->
   
 websocket_handle({text, Msg}, Req, State) ->  
     Args = mochijson3:decode(Msg),
-    parse_action(Args),
+    Reply = parse_action(Args),
     lager:debug("Received: ~p", [Msg]),  
-    {reply,  
-        {text, << "Responding to ", Msg/binary >>},  
-        Req, State, hibernate  
-    };
+    {reply, Reply, Req, State, hibernate};
   
 % With this callback we can handle other kind of  
 % messages, like binary.  
@@ -81,7 +80,7 @@ websocket_terminate(_Reason, _Req, _State) ->
 %%%===================================================================
 %%% Internal funxggctions
 %%%===================================================================
-parse_action([?HELLO, Name, X, Y]) ->
+parse_action([?HELLO, _Name, _X, _Y]) ->
     %% This is a player call
     ok;
 parse_action(ActionList) ->
