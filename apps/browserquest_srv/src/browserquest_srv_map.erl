@@ -38,6 +38,9 @@ get_attribute(Attribute) ->
 is_colliding(X, Y) ->
     gen_server:call(?SERVER, {is_colliding, X, Y}).
 
+is_out_of_bounds(X, Y) ->
+    gen_server:call(?SERVER, {is_out_of_bounds, X, Y}).    
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -53,7 +56,8 @@ init([MapName]) ->
     CollisionGrid = 
         get_collision_grid(Height, Width, get_json_value("collisions", Json)),
 
-    PropList = [{"zoneWidth", ZoneWidth}, {"zoneHeight", ZoneHeight},
+    PropList = [{"width", Width}, {"height", Height},
+                {"zoneWidth", ZoneWidth}, {"zoneHeight", ZoneHeight},
                 {"groupWidth", trunc(Width / ZoneWidth)},
                 {"groupHeight", trunc(Height / ZoneHeight)},
                 {"collisionGrid", CollisionGrid}],
@@ -66,6 +70,12 @@ handle_call({get_attribute, Attribute}, _From, Map) ->
 handle_call({is_colliding, X, Y}, _From, #map{attributes = PL} = Map) ->
     Grid = proplists:get_value("collisionGrid", PL),
     {reply, do_is_colliding(X, Y, Grid), Map};
+handle_call({is_out_of_bounds, X, Y}, _From, #map{attributes = PL} = Map) ->
+    Height = proplists:get_value("height", PL),
+    Width = proplists:get_value("width", PL),
+    io:format("~p~n", [{X,Width,Y,Height}]),
+    Reply = (X < 1) or (X >= Width) or (Y < 1) or (Y >= Height),
+    {reply, Reply, Map};
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
     Reply = ok,
