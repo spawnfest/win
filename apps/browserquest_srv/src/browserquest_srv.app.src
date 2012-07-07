@@ -5,8 +5,12 @@
   {registered, []},
   {applications, [
                   lager,
+                  cowboy,
                   kernel,
-                  stdlib
+                  stdlib,
+                  compiler,
+                  crypto,
+                  syntax_tools
                  ]},
   {mod, { browserquest_srv_app, []}},
   {env, [
