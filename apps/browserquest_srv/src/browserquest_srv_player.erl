@@ -101,13 +101,13 @@ init([Name, Armor, Weapon]) ->
 	}
       }}.
 
-handle_call({get_status}, _From, State = #state{player = #player{id = Id, name = Name, pos_x = X, pos_y = Y, hitpoints = HP}}) ->
-    add_action(move, State),
+handle_call({get_status}, _From, State = #state{riak = Riak, player = #player{id = Id, name = Name, zone = Zone, pos_x = X, pos_y = Y, hitpoints = HP}}) ->
+    add_action(Riak, Zone, Id, move, [X, Y]),
     {reply, {ok, [Id, Name, X, Y, HP]}, State};
 
-handle_call({move, X, Y}, _From, State = #state{player = Player}) ->
+handle_call({move, X, Y}, _From, State = #state{riak = Riak, player = Player}) ->
     NewState = State#state{player = Player#player{pos_x = X, pos_y = Y}},
-    add_action(move, NewState),
+    add_action(Riak, Player#player.zone, Player#player.id, move, [X, Y]),
     {reply, {ok, [Player#player.id, X, Y]}, NewState};
 
 handle_call({set_checkpoint, Value}, _From, State = #state{player = Player}) ->
@@ -115,8 +115,9 @@ handle_call({set_checkpoint, Value}, _From, State = #state{player = Player}) ->
 
 handle_call({update_zone}, _From, State = #state{player = Player}) ->
     %% Delete old zone and insert the new one
-    NewState = move_to_zone(make_zone(Player#player.pos_x, Player#player.pos_y), State),
-    {reply, ok, NewState};
+    Zone = make_zone(Player#player.pos_x, Player#player.pos_y),
+    move_to_zone(Zone, State),
+    {reply, ok, State#state{player = Player#player{zone = Zone}}};
 
 handle_call({get_zone}, _From, State = #state{player = Player}) ->
     {reply, {ok, Player#player.zone}, State};
@@ -150,23 +151,22 @@ generate_id() ->
     random:seed(erlang:now()),
     random:uniform(1000000).
 
-add_action(Action, State = #state{riak = Riak, player = Player}) ->
-    store_in_riak(Riak, Player#player.zone, Player#player.id, [Action, Player#player.pos_x, Player#player.pos_y]),
-    State.
+add_action(Riak, Zone, Id, Action, Args) ->
+    store_in_riak(Riak, Zone, Id, [Action, Args]).
 
-move_to_zone(NewZone, State = #state{riak = Riak, player = Player}) ->
+move_to_zone(NewZone, #state{riak = Riak, player = Player}) ->
     lager:debug("Moving out of zone"),
     ok = delete_in_riak(Riak, Player#player.zone, Player#player.id), 
-    add_action(move, State#state{player = Player#player{zone = NewZone}}).
+    add_action(Riak, NewZone, Player#player.id, move, [Player#player.pos_x, Player#player.pos_y]).
     
 make_zone(PosX, PosY) ->
     Zone = erlang:trunc(PosX/(PosX rem 28))*erlang:trunc(PosY/(PosY rem 11)),
     ZoneString = erlang:integer_to_list(Zone),
     ensure_bin("ZONE"++ZoneString).
 
-store_in_riak(Riak, Zone, Id, Action) ->
+store_in_riak(Riak, Zone, Id, Term) ->
     Object = riakc_obj:new(Zone, ensure_bin(Id), <<>>),
-    Object2 = encode_term(Object, Action),
+    Object2 = encode_term(Object, Term),
     riakc_pb_socket:put(Riak, Object2).
 
 delete_in_riak(Riak, Zone, Id) ->
