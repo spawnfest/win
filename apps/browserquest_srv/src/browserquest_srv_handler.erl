@@ -81,7 +81,7 @@ websocket_terminate(_Reason, _Req, _State) ->
 %%%===================================================================
 %%% Internal funxggctions
 %%%===================================================================
-parse_action([0, Name, X, Y]) ->
+parse_action([?HELLO, Name, X, Y]) ->
     %% This is a player call
     ok;
 parse_action(ActionList) ->
