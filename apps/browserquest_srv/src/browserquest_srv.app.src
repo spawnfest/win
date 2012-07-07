@@ -1,12 +1,15 @@
 {application, browserquest_srv,
  [
-  {description, ""},
-  {vsn, "1"},
+  {description, "Backend server for browserquest"},
+  {vsn, "0.1.0"},
   {registered, []},
   {applications, [
+                  lager,
                   kernel,
                   stdlib
                  ]},
   {mod, { browserquest_srv_app, []}},
-  {env, []}
+  {env, [
+  	{listening_port, 10100}
+  ]}
  ]}.
