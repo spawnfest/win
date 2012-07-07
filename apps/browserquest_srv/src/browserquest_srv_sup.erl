@@ -1,4 +1,11 @@
-
+%%%-------------------------------------------------------------------
+%%% @author Niclas Axelsson <burbas@Niclass-MacBook-Pro.local>
+%%% @copyright (C) 2012, Niclas Axelsson
+%%% @doc
+%%%
+%%% @end
+%%% Created :  7 Jul 2012 by Niclas Axelsson <burbas@Niclass-MacBook-Pro.local>
+%%%-------------------------------------------------------------------
 -module(browserquest_srv_sup).
 
 -behaviour(supervisor).
@@ -9,20 +16,55 @@
 %% Supervisor callbacks
 -export([init/1]).
 
-%% Helper macro for declaring children of supervisor
--define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
+-define(SERVER, ?MODULE).
 
-%% ===================================================================
-%% API functions
-%% ===================================================================
+%%%===================================================================
+%%% API functions
+%%%===================================================================
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Starts the supervisor
+%%
+%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
 start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-%% ===================================================================
-%% Supervisor callbacks
-%% ===================================================================
+%%%===================================================================
+%%% Supervisor callbacks
+%%%===================================================================
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Whenever a supervisor is started using supervisor:start_link/[2,3],
+%% this function is called by the new process to find out about
+%% restart strategy, maximum restart frequency and child
+%% specifications.
+%%
+%% @spec init(Args) -> {ok, {SupFlags, [ChildSpec]}} |
+%%                     ignore |
+%%                     {error, Reason}
+%% @end
+%%--------------------------------------------------------------------
 init([]) ->
-    {ok, { {one_for_one, 5, 10}, []} }.
+    RestartStrategy = one_for_one,
+    MaxRestarts = 1000,
+    MaxSecondsBetweenRestarts = 3600,
 
+    SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
+
+    Restart = permanent,
+    Shutdown = 2000,
+    Type = worker,
+
+    AChild = {'AName', {'AModule', start_link, []},
+	      Restart, Shutdown, Type, ['AModule']},
+
+    {ok, {SupFlags, [AChild]}}.
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
