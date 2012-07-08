@@ -57,6 +57,7 @@ init([T, X, Y]) ->
     Id = browserquest_srv_entity_handler:generate_id("1"),
     Zone = browserquest_srv_entity_handler:make_zone(X, Y),
     Type = browserquest_srv_util:type_to_internal(T),
+    Orientation = random:uniform(4),
     State = do_init(
 	      Type, 
           #state{id = Id, type = Type,
@@ -64,7 +65,8 @@ init([T, X, Y]) ->
             orientation = random:uniform(4)}
 	     ),
 
-    browserquest_srv_entity_handler:register(Zone, Type, {action, [false, ?SPAWN, Id, Type, ?DOWN]}),
+    browserquest_srv_entity_handler:register(Zone, Type, {action, [false,
+                ?SPAWN, Id, Type, Orientation]}),
     {ok, State}.
 
 
