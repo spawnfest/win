@@ -6,7 +6,7 @@
 %%% @end
 %%% Created :  8 Jul 2012 by Niclas Axelsson <burbas@Niclass-MacBook-Pro.local>
 %%%-------------------------------------------------------------------
--module(browserquest_srv_player_handler).
+-module(browserquest_srv_entity_handler).
 
 -behaviour(gen_server).
 
@@ -14,6 +14,7 @@
 -export([
 	 start_link/0,
 	 register/2,
+	 register_static/2,
 	 unregister/1,
 	 event/2,
 	 move_zone/2
@@ -47,6 +48,10 @@ register(Zone, SpawnInfo) ->
     Pid = self(),
     gen_server:call(?MODULE, {register, Pid, Zone}),
     event(Zone, SpawnInfo).
+
+register_static(Zone, SpawnInfo) ->
+    Pid = self(),
+    gen_server:call(?MODULE, {register, {static, Pid}, Zone}).
 
 unregister(Zone) ->
     Pid = self(),
@@ -101,14 +106,14 @@ handle_call({register, Pid, Zone}, _From, State = #state{zones = Zones}) ->
 
 handle_call({unregister, Pid, Zone}, _From, State = #state{zones = Zones}) ->
     UpdatedZones = dict:update(Zone, fun(Nodes) ->
-					     [ X || X <- Nodes, X /= Pid ]
+					     [ X || X <- Nodes, X /= Pid, X /= {static, Pid} ]
 				     end, [], Zones),
     {reply, ok, State#state{zones = UpdatedZones}};
 
 handle_call({event, Pid, Zone, Message}, _From, State = #state{zones = Zones}) ->
     case dict:find(Zone, Zones) of
 	{ok, Nodes} ->
-	    [ gen_server:cast(Node, {event, Pid, Message}) || Node <- Nodes, Node /= Pid ];
+	    [ gen_server:cast(Node, {event, Pid, Message}) || Node <- Nodes, Node /= Pid, Node /= {static, Pid} ];
 	_ ->
 	    []
     end,
