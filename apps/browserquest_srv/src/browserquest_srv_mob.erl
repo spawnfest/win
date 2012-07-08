@@ -162,8 +162,8 @@ code_change(_OldVsn, State, _Extra) ->
 %% Calculate the item dropped. The Item list needs to be sorted in ascending
 %% order for it to work properly.
 item([], _) -> undefined;
-%item([{Item, Chance} | Items], Rand) if Rand <= Chance ->
-%        Item;
+item([{Item, Chance} | Items], Rand) when Rand =< Chance ->
+        Item;
 item([_ | Items], Rand) ->
     item(Items, Rand).
 
