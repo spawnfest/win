@@ -87,7 +87,6 @@ handle_call({get_armor}, _From, State = #state{id = Id, armor = Armor}) ->
 
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
-    Reply = ok,
     {reply, ok, State}.
 
 handle_cast({tick}, State = #state{hate = _Hate, hitpoints = HP}) ->
@@ -151,9 +150,9 @@ drop_item(Item, X, Y) ->
     %% Items start with 9
     Id = browserquest_srv_entity_handler:generate_id("9"),
     Zone = browserquest_srv_entity_handler:make_zone(X,Y),
-    Args = [Zone, Item, Id, [?SPAWN, Id, Item, X, Y]],
+    SpawnInfo = [?SPAWN, Id, Item, X, Y],
     %% Remove apply, spawn item gen_server, call register from it
-    Fun = fun() -> browserquest_srv_item:create(Item, Args) end,
+    Fun = fun() -> browserquest_srv_item:create(Zone, Item, Id, SpawnInfo) end,
     spawn(Fun),
     ok.
 

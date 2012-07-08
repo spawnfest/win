@@ -11,7 +11,7 @@
 
 -include("../include/browserquest.hrl").
 %% API
--export([create/2, start_link/2]).
+-export([create/4, start_link/4]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -21,15 +21,15 @@
 
 -define(SERVER, ?MODULE). 
 
--record(state, {id}).
+-record(state, {id, zone}).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
-create(ItemType, Args) ->
-    start_link(ItemType, Args).
-start_link(ItemType, Args) ->
-    gen_server:start_link(?MODULE, [ItemType, Args], []).
+create(Zone, Item, Id, SpawnInfo) ->
+    start_link(Zone, Item, Id, SpawnInfo).
+start_link(Zone, Item, Id, SpawnInfo) ->
+    gen_server:start_link(?MODULE, [Zone, Item, Id, SpawnInfo], []).
 
 pickup(ItemPid, PlayerState) ->
     gen_server:call(ItemPid, {pickup, PlayerState}).
@@ -37,11 +37,13 @@ pickup(ItemPid, PlayerState) ->
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
-init([ItemType, Args]) ->
-    browserquest_srv_entity_handler:register(Args),
-    {ok, #state{id = ItemType}}.
+init([Zone, Item, Id, SpawnInfo]) ->
+    browserquest_srv_entity_handler:register(Zone, Item, Id, SpawnInfo),
+    {ok, #state{id = Item, zone = Zone}}.
 
-handle_call({pickup, PlayerState}, _From, State = #state{id = Id}) ->
+handle_call({pickup, PlayerState}, _From, 
+            State = #state{id = Id, zone = Zone}) ->
+    browserquest_srv_entity_handler:unregister(Zone),
     {stop, normal, new_player_state(Id, PlayerState), State};        
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
