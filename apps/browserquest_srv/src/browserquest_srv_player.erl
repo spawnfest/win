@@ -114,7 +114,7 @@ handle_call({move, X, Y}, _From, State = #state{pos_x = OldX, pos_y = OldY,
         true ->
             {reply, {ok, [Id, OldX, OldY]}, State};
         _ ->
-            browserquest_srv_player_handler:event(
+            browserquest_srv_entity_handler:event(
               Zone, ?WARRIOR, {action, [?MOVE, Id, X, Y]}),
             {reply, {ok, [Id, X, Y]}, State#state{pos_x = X, pos_y = Y}}
     end;

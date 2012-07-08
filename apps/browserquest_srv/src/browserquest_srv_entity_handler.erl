@@ -191,8 +191,8 @@ ensure_bin(Bin) when is_binary(Bin) ->
 %%% Exported functions
 %%%===================================================================
 make_zone(PosX, PosY) ->
-    Zone = erlang:trunc(PosX/(PosX rem 28))*erlang:trunc(PosY/(PosY rem 11)),
-    ZoneString = erlang:integer_to_list(Zone),
+    ZoneString = erlang:integer_to_list(PosX) ++ "x" ++
+        erlang:integer_to_list(PosY) ++ "y",
     ensure_bin("ZONE"++ZoneString).
 
 generate_id(InitialValue) when is_list(InitialValue) ->

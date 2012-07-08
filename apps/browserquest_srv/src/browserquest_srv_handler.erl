@@ -162,5 +162,5 @@ make_tick(Node, TickTime) ->
 	    make_tick(Node, TickTime)
     end.
 
-add_mob(#mobarea{id = Id, type = Type, x = X, y = Y}) ->
-    browserquest_srv_mob_sup:add_child(Id, Type, X, Y).
+add_mob(#mobarea{type = Type, x = X, y = Y}) ->
+    browserquest_srv_mob_sup:add_child(Type, X, Y).

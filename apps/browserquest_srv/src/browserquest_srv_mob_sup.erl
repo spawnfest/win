@@ -11,7 +11,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, add_child/4]).
+-export([start_link/0, add_child/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -40,14 +40,14 @@ init([]) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-add_child(Id, MobType, X, Y) ->
+add_child(MobType, X, Y) ->
     Restart = permanent,
     Shutdown = 2000,
     ChildType = worker,
     
     Mob = 
         {erlang:make_ref(),
-         {browserquest_srv_mob, start_link, [Id, MobType, X, Y]},
+         {browserquest_srv_mob, start_link, [MobType, X, Y]},
          Restart, Shutdown, ChildType, [browserquest_srv_mob]},
     {ok, Pid} = supervisor:start_child(?SERVER, Mob),
     Pid.
