@@ -83,7 +83,11 @@ stop(Pid) ->
 init([Name, Armor, Weapon]) ->
     Id = generate_id(),
     Hitpoints = ?CALC_HP(Armor),
-    {PosX, PosY} = {10,10},
+
+    CPs = browserquest_srv_map:get_attribute("checkpoints"),
+    random:seed(erlang:now()),
+    #cp{x = PosX, y = PosY} = lists:nth(random:uniform(length(CPs)), CPs),
+%%    {PosX, PosY} = {10,10},
     
     Zone = make_zone(PosX, PosY),
 
