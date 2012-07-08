@@ -202,7 +202,8 @@ make_zone(PosX, PosY) ->
 
 generate_id(InitialValue) when is_list(InitialValue) ->
     random:seed(erlang:now()),
-    [InitialValue|erlang:integer_to_list(random:uniform(1000000))].
+    random:uniform(1000000).
+    %[InitialValue|erlang:integer_to_list(random:uniform(1000000))].
 
 add_mob(#mobarea{type = Type, x = X, y = Y}) ->
     browserquest_srv_mob_sup:add_child(Type, X, Y).
