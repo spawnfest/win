@@ -36,7 +36,8 @@
                 orientation, %TODO initalize in init
                 attackers = [],
                 range,
-                target
+                target,
+		zone
             }).
 
 %%%===================================================================
@@ -77,10 +78,9 @@ init([BinType, X, Y]) ->
 		     orientation = random:uniform(4)}
 	     ),
 
-    lager:debug("Mob zone: ~p", [Zone]),
     browserquest_srv_entity_handler:register(Zone, Type, Id, {action, [false,
                 ?SPAWN, Id, Type, X, Y]}),
-    {ok, State}.
+    {ok, State#state{zone = Zone, id = Id, type = Type}}.
 
 
 handle_call({get_armor}, _From, State = #state{id = Id, armor = Armor}) ->
@@ -98,21 +98,37 @@ handle_cast({tick}, State = #state{hate = _Hate, hitpoints = HP}) ->
 	_ ->
 	    ok
     end,
-    {noreply, ok, State};
+    {noreply, State};
 
-handle_cast({event, From, ?WARRIOR, {action, [?MOVE, Id, X, Y]}}, State = #state{range = Range, pos_x = PX, pos_y = PY, hate = Hate}) when Hate =:= [] andalso ((PX-Range < X andalso X < (PX+Range)) orelse ((PY-Range) < Y andalso Y < (PY+Range))) ->
+handle_cast({event, From, ?WARRIOR, {action, [?MOVE, _Id, ?WARRIOR, X, Y, _Name, _Orient, _Armor, _Weapon]}}, State = #state{range = Range, pos_x = PX, pos_y = PY, hate = Hate}) when Hate =:= [] andalso ((PX-Range < X andalso X < (PX+Range)) orelse ((PY-Range) < Y andalso Y < (PY+Range))) ->
     %% Hates on for you
-    {noreply, ok, State#state{hate = [From]}};
+    {noreply, State#state{hate = [From]}};
 
-handle_cast({event, From, ?WARRIOR, {action, [?MOVE, _Id, _X, _Y]}}, State) ->
-    {noreply, ok, State};
+%% A hero have spawned in our zone
+handle_cast({event, From, ?WARRIOR, {action, [_, ?SPAWN, _Id, ?WARRIOR, _X, _Y, _Name, _Orient, _Armor, _Weapon]}}, State = #state{id = Id, type = Type, pos_x = X, pos_y = Y}) ->
+
+    gen_server:cast(From, {event, self(), Id, {action, [false, ?SPAWN, Id, Type, X, Y]}}),
+    {noreply, State};
 
 handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Target]}}, State = #state{id = Target}) ->
     %% I'm gonna KILL you
-    {noreply, ok, State#state{hate = [From]}};
+    {noreply, State#state{hate = [From]}};
 
-handle_cast({receive_damage, Amount}, State) ->
-    {noreply, ok, do_receive_damage(Amount, State)};
+handle_cast({receive_damage, Amount}, State = #state{id = Id, zone = Zone, type = Type, hitpoints = HP}) ->
+    lager:debug("Receiving damage: ~p", [Amount]),
+
+    Total = HP - Amount,
+
+    NewState = State#state{hitpoints = Total},
+    case Total =< 0 of
+        true ->
+	    browserquest_srv_entity_handler:event(Zone, Type, {action, [?DESPAWN, Id]}),
+	    browserquest_srv_entity_handler:unregister(Zone),
+	    {stop, normal, NewState};
+        false ->
+            {noreply, NewState}
+    end;
+
 handle_cast(Msg, State) ->
     browserquest_srv_util:unexpected_cast(?MODULE, Msg, State),
     {noreply, State}.
@@ -122,16 +138,7 @@ handle_info(Info, State) ->
     {noreply, State}.
 
 terminate(_Reason, _State) ->
-    %TODO DEATH!
-    %destroy: function() {
-    %    this.isDead = true;
-    %    this.hatelist = [];
-    %    this.clearTarget();
-    %    this.updateHitPoints();
-    %    this.resetPosition();
-    %    
-    %    this.handleRespawn();
-    %},
+    timer:sleep(30000),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -286,16 +293,6 @@ do_init(?BOSS, State) ->
 do_init(_Type, State) ->
     lager:error("Unknown mob type initialization"),
     State.
-
-do_receive_damage(Amount, State = #state{hitpoints = HP}) ->
-    Total = HP - Amount,
-    NewState = State#state{hitpoints = Total},
-    case Total =< 0 of
-        true -> %DEATH!
-            NewState#state{is_dead = true};
-        false ->
-            NewState
-    end.
 
     %hates: function(playerId) {
     %    return _.any(this.hatelist, function(obj) { 

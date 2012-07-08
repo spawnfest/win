@@ -139,7 +139,7 @@ handle_call({update_zone}, _From, State = #state{zone = OldZone, id = Id, name =
     %% Delete old zone and insert the new one
     NewZone = browserquest_srv_entity_handler:make_zone(X, Y),
     browserquest_srv_entity_handler:unregister(OldZone),
-    browserquest_srv_entity_handler:register(NewZone, ?WARRIOR, Id, {action, [?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}),
+    browserquest_srv_entity_handler:register(NewZone, ?WARRIOR, Id, {action, [true, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}),
     {reply, ok, State#state{zone = NewZone}};
 
 handle_call({get_zone}, _From, State = #state{zone = Zone}) ->
@@ -153,8 +153,15 @@ handle_call({chat, Message}, _From, State = #state{id = Id, zone = Zone}) ->
     browserquest_srv_entity_handler:event(Zone, ?WARRIOR, {action, Action}),
     {reply, {ok, Action}, State};
 
-handle_call({attack, Target}, _From, State = #state{zone = Zone, target = Target}) ->
-    Action = [?ATTACK, Target],
+handle_call({attack, Target}, _From, State = #state{zone = Zone}) ->
+    Action =
+	case Target of
+	    _IntTarget when is_integer(Target) ->
+		[?ATTACK, erlang:integer_to_list(Target)];
+	    _ ->
+		[?ATTACK, Target]
+	end,
+
     browserquest_srv_entity_handler:event(Zone, ?WARRIOR, {action, Action}),
     {reply, ok, State};
 
