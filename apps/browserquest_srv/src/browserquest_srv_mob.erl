@@ -172,7 +172,7 @@ do_init(?RAT, State) ->
              {?BURGER, 15},
              {?FLASK, 55}],
 
-    State#state{hitpoints = 2500,
+    State#state{hitpoints = 25,
                 item = item(Drops, random:uniform(100)),
                 armor = ?CLOTHARMOR,
                 range = 1,
