@@ -75,7 +75,7 @@ init([BinType, X, Y]) ->
 	      Type, 
 	      #state{id = Id, type = Type,
 		     pos_x = X, pos_y = Y,
-		     orientation = random:uniform(4)}
+		     orientation = Orientation}
 	     ),
 
     browserquest_srv_entity_handler:register(Zone, Type, Id, {action, [false,
@@ -89,7 +89,7 @@ handle_call({get_armor}, _From, State = #state{id = Id, armor = Armor}) ->
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
     Reply = ok,
-    {reply, Reply, State}.
+    {reply, ok, State}.
 
 handle_cast({tick}, State = #state{hate = _Hate, hitpoints = HP}) ->
     case HP of
@@ -106,7 +106,6 @@ handle_cast({event, From, ?WARRIOR, {action, [?MOVE, _Id, ?WARRIOR, X, Y, _Name,
 
 %% A hero have spawned in our zone
 handle_cast({event, From, ?WARRIOR, {action, [_, ?SPAWN, _Id, ?WARRIOR, _X, _Y, _Name, _Orient, _Armor, _Weapon]}}, State = #state{id = Id, type = Type, pos_x = X, pos_y = Y}) ->
-
     gen_server:cast(From, {event, self(), Id, {action, [false, ?SPAWN, Id, Type, X, Y]}}),
     {noreply, State};
 
