@@ -66,6 +66,8 @@ init([MapName]) ->
 
     MobAreas = lists:map(fun get_mobarea/1,
                          get_json_value("roamingAreas", Json)),
+
+    {_,StaticEntities} = get_json_value("staticEntities", Json),
                             
     PropList = [{"width", Width}, {"height", Height},
                 {"zoneWidth", ZoneWidth}, {"zoneHeight", ZoneHeight},
@@ -74,7 +76,8 @@ init([MapName]) ->
                 {"collisionGrid", CollisionGrid},
                 {"startingAreas", StartingAreas},
                 {"checkpoints", Checkpoints},
-                {"mobAreas", MobAreas}
+                {"mobAreas", MobAreas},
+                {"staticEntities", StaticEntities}
                ],
     
     Map = #map{json = Json, attributes = PropList},
@@ -123,23 +126,24 @@ get_json_value(Key, Json) ->
     mochijson3_helper:get_path_value([{1, binary:list_to_bin(Key)}], Json).
 
 get_collision_grid(Height, Width, Collisions) ->
-    HeightArray = array:new([{size,Height},{fixed,true},{default,0}]),
-    GridArray = array:new([{size,Width},{fixed,true},{default,HeightArray}]),
     Grid = [{Y,X}||Y<-lists:seq(0,Height-1), X<-lists:seq(0,Width-1)],
     GridTiled = lists:zip(Grid, lists:seq(0,length(Grid)-1)),
-    lists:foldl(set_array(Collisions), GridArray, GridTiled).
+    GridTree = gb_trees:from_orddict(GridTiled),
+    CollisionTree = gb_trees:from_orddict(lists:zip(Collisions, Collisions)),
+    gb_trees:map(set_array(CollisionTree), GridTree).
 
 set_array(Collisions) ->
-    fun (Element, Array) -> set_array_element(Element, Array, Collisions) end.
-
-set_array_element({{Y,X}, TileIndex}, Array, Collisions) ->
-    Value = case lists:member(TileIndex, Collisions) of true -> 1; _ -> 0 end,
-    HeightArray = array:get(X, Array),
-    NewHeightArray = array:set(Y, Value, HeightArray),
-    array:set(X, NewHeightArray, Array).
+    fun(_Key, TiledId) ->
+            case gb_trees:lookup(TiledId, Collisions) of
+                none -> 0;
+                _ ->
+                    1
+            end
+    end.
 
 do_is_colliding(X, Y, Grid) ->    
-    array:get(Y - 1, array:get(X - 1, Grid)) == 1.
+    {value, Val} = gb_trees:lookup({X,Y}, Grid),
+    Val == 1.
 
 get_checkpoint(CP) ->
     [Id,X,Y,W,H] = [get_json_value(A, CP) || A <- ["id","x","y","w","h"]],

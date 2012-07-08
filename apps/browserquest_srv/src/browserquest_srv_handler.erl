@@ -27,7 +27,6 @@
 -record(state, {
 	  riak,
 	  player,
-          mobs,
 	  tick_time
 	 }).
 
@@ -122,11 +121,7 @@ parse_action([?HELLO, Name, Armor, Weapon], State) ->
     %% This is a player call
     {ok, Player} = browserquest_srv_player:start_link(Name, Armor, Weapon),
     {ok, Status} = browserquest_srv_player:get_status(Player),
-    Mobs = lists:map(fun add_mob/1,
-                     browserquest_srv_map:get_attribute("mobAreas")),
-    
-    {json, [?WELCOME|Status], State#state{player = Player,
-                                          mobs = Mobs}};
+    {json, [?WELCOME|Status], State#state{player = Player}};
 
 parse_action([?MOVE, X, Y], State = #state{player = Player}) ->
     {ok, Status} = browserquest_srv_player:move(Player, X, Y),
@@ -162,5 +157,3 @@ make_tick(Node, TickTime) ->
 	    make_tick(Node, TickTime)
     end.
 
-add_mob(#mobarea{type = Type, x = X, y = Y}) ->
-    browserquest_srv_mob_sup:add_child(Type, X, Y).

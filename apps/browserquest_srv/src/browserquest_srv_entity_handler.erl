@@ -10,6 +10,7 @@
 
 -behaviour(gen_server).
 
+-include("../include/browserquest.hrl").
 %% API
 -export([
 	 start_link/0,
@@ -29,7 +30,9 @@
 -define(SERVER, ?MODULE). 
 
 -record(state, {
-	  zones :: dict()
+	  zones :: dict(),
+          mobs,
+          staticEntities
 	 }).
 
 %%%===================================================================
@@ -85,6 +88,8 @@ move_zone(OldZone, NewZone) ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
+    Args = [fun add_mob/1, browserquest_srv_map:get_attribute("mobAreas")],
+    erlang:spawn(lists, foreach, Args),
     {ok, #state{zones = dict:new()}}.
 
 %%--------------------------------------------------------------------
@@ -198,3 +203,6 @@ make_zone(PosX, PosY) ->
 generate_id(InitialValue) when is_list(InitialValue) ->
     random:seed(erlang:now()),
     [InitialValue|erlang:integer_to_list(random:uniform(1000000))].
+
+add_mob(#mobarea{type = Type, x = X, y = Y}) ->
+    browserquest_srv_mob_sup:add_child(Type, X, Y).
