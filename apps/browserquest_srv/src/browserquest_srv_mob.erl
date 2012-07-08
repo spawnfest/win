@@ -32,7 +32,6 @@
                 item,
                 respawn_timout,
                 return_timeout,
-                is_dead = false,
                 orientation, %TODO initalize in init
                 attackers = [],
                 range,
@@ -69,7 +68,7 @@ init([BinType, X, Y]) ->
     Id = browserquest_srv_entity_handler:generate_id("1"),
     Zone = browserquest_srv_entity_handler:make_zone(X, Y),
     Type = browserquest_srv_util:type_to_internal(BinType),
-    Orientation = random:uniform(4),
+    _Orientation = random:uniform(4),
     State = do_init(
 	      Type, 
 	      #state{id = Id, type = Type,
@@ -104,15 +103,24 @@ handle_cast({event, From, ?WARRIOR, {action, [?MOVE, Id, X, Y]}}, State = #state
     %% Hates on for you
     {noreply, ok, State#state{hate = [From]}};
 
-handle_cast({event, From, ?WARRIOR, {action, [?MOVE, _Id, _X, _Y]}}, State) ->
+handle_cast({event, _From, ?WARRIOR, {action, [?MOVE, _Id, _X, _Y]}}, State) ->
     {noreply, ok, State};
 
 handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Target]}}, State = #state{id = Target}) ->
     %% I'm gonna KILL you
     {noreply, ok, State#state{hate = [From]}};
 
-handle_cast({receive_damage, Amount}, State) ->
-    {noreply, ok, do_receive_damage(Amount, State)};
+handle_cast({receive_damage, Amount}, 
+            State = #state{hitpoints = HP, item = Item,
+                           pos_x = X, pos_y = Y}) ->
+    case do_receive_damage(Amount, HP) of
+        death ->
+            drop_item(Item, X, Y),
+            resurrection(State),
+            {stop, normal, State};
+        _ ->
+            {noreply, ok, State}
+    end;
 handle_cast(Msg, State) ->
     browserquest_srv_util:unexpected_cast(?MODULE, Msg, State),
     {noreply, State}.
@@ -140,14 +148,34 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+drop_item(Item, X, Y) ->
+    %% Items start with 9
+    Id = browserquest_srv_entity_handler:generate_id("9"),
+    Zone = browserquest_srv_entity_handler:make_zone(X,Y),
+    Args = [Zone, Item, Id, [?SPAWN, Id, Item, X, Y]],
+    %% Remove apply, spawn item gen_server, call register from it
+    Fun = fun() -> browserquest_srv_item:create(Item, Args) end,
+    spawn(Fun),
+    ok.
+
+resurrection(#state{type = Type, pos_x = X, pos_y = Y}) ->
+    Fun = fun() -> timer:sleep(30000),
+                   browserquest_srv_mob_sup:add_child(Type, X, Y)
+          end,
+    spawn(Fun),
+    ok.
+do_receive_damage(Amount, HP) ->
+    Total = HP - Amount,
+    case Total =< 0 of
+        true -> death;
+        false -> life
+    end.
 
 %% Calculate the item dropped. The Item list needs to be sorted in ascending
 %% order for it to work properly.
 item([], _) -> undefined;
-%item([{Item, Chance} | Items], Rand) if Rand <= Chance ->
-%        Item;
-item([_ | Items], Rand) ->
-    item(Items, Rand).
+item([{Item, Chance} | _Items], Rand) when Rand =< Chance -> Item;
+item([_ | Items], Rand) -> item(Items, Rand).
 
 do_init(?RAT, State) ->
     Drops = [{?FIREPOTION, 5},
@@ -287,204 +315,3 @@ do_init(_Type, State) ->
     lager:error("Unknown mob type initialization"),
     State.
 
-do_receive_damage(Amount, State = #state{hitpoints = HP}) ->
-    Total = HP - Amount,
-    NewState = State#state{hitpoints = Total},
-    case Total =< 0 of
-        true -> %DEATH!
-            NewState#state{is_dead = true};
-        false ->
-            NewState
-    end.
-
-    %hates: function(playerId) {
-    %    return _.any(this.hatelist, function(obj) { 
-    %        return obj.id === playerId; 
-    %    });
-    %},
-    %
-    %increaseHateFor: function(playerId, points) {
-    %    if(this.hates(playerId)) {
-    %        _.detect(this.hatelist, function(obj) {
-    %            return obj.id === playerId;
-    %        }).hate += points;
-    %    }
-    %    else {
-    %        this.hatelist.push({ id: playerId, hate: points });
-    %    }
-
-    %    /*
-    %    log.debug("Hatelist : "+this.id);
-    %    _.each(this.hatelist, function(obj) {
-    %        log.debug(obj.id + " -> " + obj.hate);
-    %    });*/
-    %    
-    %    if(this.returnTimeout) {
-    %        // Prevent the mob from returning to its spawning position
-    %        // since it has aggroed a new player
-    %        clearTimeout(this.returnTimeout);
-    %        this.returnTimeout = null;
-    %    }
-    %},
-    
-    %getHatedPlayerId: function(hateRank) {
-    %    var i, playerId,
-    %        sorted = _.sortBy(this.hatelist, function(obj) { return obj.hate; }),
-    %        size = _.size(this.hatelist);
-    %    
-    %    if(hateRank && hateRank <= size) {
-    %        i = size - hateRank;
-    %    }
-    %    else {
-    %        i = size - 1;
-    %    }
-    %    if(sorted && sorted[i]) {
-    %        playerId = sorted[i].id;
-    %    }
-    %    
-    %    return playerId;
-    %},
-    
-    %forgetPlayer: function(playerId, duration) {
-    %    this.hatelist = _.reject(this.hatelist, function(obj) { return obj.id === playerId; });
-    %    
-    %    if(this.hatelist.length === 0) {
-    %        this.returnToSpawningPosition(duration);
-    %    }
-    %},
-    
-    %forgetEveryone: function() {
-    %    this.hatelist = [];
-    %    this.returnToSpawningPosition(1);
-    %},
-    
-    %drop: function(item) {
-    %    if(item) {
-    %        return new Messages.Drop(this, item);
-    %    }
-    %},
-    
-    %handleRespawn: function() {
-    %    var delay = 30000,
-    %        self = this;
-    %    
-    %    if(this.area && this.area instanceof MobArea) {
-    %        // Respawn inside the area if part of a MobArea
-    %        this.area.respawnMob(this, delay);
-    %    }
-    %    else {
-    %        if(this.area && this.area instanceof ChestArea) {
-    %            this.area.removeFromArea(this);
-    %        }
-    %        
-    %        setTimeout(function() {
-    %            if(self.respawn_callback) {
-    %                self.respawn_callback();
-    %            }
-    %        }, delay);
-    %    }
-    %},
-    
-    %resetPosition: function() {
-    %    this.setPosition(this.spawningX, this.spawningY);
-    %},
-    
-    %returnToSpawningPosition: function(waitDuration) {
-    %    var self = this,
-    %        delay = waitDuration || 4000;
-    %    
-    %    this.clearTarget();
-    %    
-    %    this.returnTimeout = setTimeout(function() {
-    %        self.resetPosition();
-    %        self.move(self.x, self.y);
-    %    }, delay);
-    %},
-    
-    %move: function(x, y) {
-    %    this.setPosition(x, y);
-    %    if(this.move_callback) {
-    %        this.move_callback(this);
-    %    }
-    %},
-    
-    %updateHitPoints: function() {
-    %    this.resetHitPoints(Properties.getHitPoints(this.kind));
-    %},
-    
-    %distanceToSpawningPoint: function(x, y) {
-    %    return Utils.distanceTo(x, y, this.spawningX, this.spawningY);
-    %}
-
-    %getState: function() {
-    %    var basestate = this._getBaseState(),
-    %        state = [];
-    %    
-    %    state.push(this.orientation);
-    %    if(this.target) {
-    %        state.push(this.target);
-    %    }
-    %    
-    %    return basestate.concat(state);
-    %},
-    
-    %regenHealthBy: function(value) {
-    %    var hp = this.hitPoints,
-    %        max = this.maxHitPoints;
-    %        
-    %    if(hp < max) {
-    %        if(hp + value <= max) {
-    %            this.hitPoints += value;
-    %        }
-    %        else {
-    %            this.hitPoints = max;
-    %        }
-    %    }
-    %},
-    
-    %hasFullHealth: function() {
-    %    return this.hitPoints === this.maxHitPoints;
-    %},
-    
-    %setTarget: function(entity) {
-    %    this.target = entity.id;
-    %},
-    
-    %clearTarget: function() {
-    %    this.target = null;
-    %},
-    
-    %hasTarget: function() {
-    %    return this.target !== null;
-    %},
-
-    %attack: function() {
-    %    return new Messages.Attack(this.id, this.target);
-    %},
-
-    %health: function() {
-    %    return new Messages.Health(this.hitPoints, false);
-    %},
-
-    %regen: function() {
-    %    return new Messages.Health(this.hitPoints, true);
-    %},
-
-    %addAttacker: function(entity) {
-    %    if(entity) {
-    %        this.attackers[entity.id] = entity;
-    %    }
-    %},
-
-    %removeAttacker: function(entity) {
-    %    if(entity && entity.id in this.attackers) {
-    %        delete this.attackers[entity.id];
-    %        log.debug(this.id +" REMOVED ATTACKER "+ entity.id);
-    %    }
-    %},
-
-    %forEachAttacker: function(callback) {
-    %    for(var id in this.attackers) {
-    %        callback(this.attackers[id]);
-    %    }
-    %}

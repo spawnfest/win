@@ -35,20 +35,6 @@
 -define(CALC_HP(ArmorLevel), 80 + ((ArmorLevel - 1) * 30)).
 -define(APP, browserquest_srv).
 
--record(state, {
-	  id,
-	  name,
-	  armor,
-	  weapon,
-	  hitpoints,
-	  pos_x,
-	  pos_y,
-	  checkpoint,
-	  zone,
-	  actionlist,
-	  target,
-	  local_cache
-	 }).
 
 
 %%%===================================================================
@@ -102,7 +88,7 @@ init([Name, Armor, Weapon]) ->
     Zone = browserquest_srv_entity_handler:make_zone(PosX, PosY),
 
     lager:debug("Player zone: ~p", [Zone]),
-    {ok, #state{
+    {ok, #player_state{
        id = Id,
        name = Name,
        armor = Armor,
@@ -116,11 +102,11 @@ init([Name, Armor, Weapon]) ->
        local_cache = []
       }}.
 
-handle_call({get_status}, _From, State = #state{id = Id, name = Name, zone = Zone, pos_x = X, pos_y = Y, hitpoints = HP, armor = Armor, weapon = Weapon}) ->
+handle_call({get_status}, _From, State = #player_state{id = Id, name = Name, zone = Zone, pos_x = X, pos_y = Y, hitpoints = HP, armor = Armor, weapon = Weapon}) ->
     browserquest_srv_entity_handler:register(Zone, ?WARRIOR, Id, {action, [true, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}),
     {reply, {ok, [Id, Name, X, Y, HP]}, State};
 
-handle_call({move, X, Y}, _From, State = #state{pos_x = OldX, pos_y = OldY,
+handle_call({move, X, Y}, _From, State = #player_state{pos_x = OldX, pos_y = OldY,
                                                 id = Id, zone = Zone}) ->
     case browserquest_srv_map:is_out_of_bounds(X, Y) of
         true ->
@@ -129,44 +115,44 @@ handle_call({move, X, Y}, _From, State = #state{pos_x = OldX, pos_y = OldY,
         _ ->
             browserquest_srv_entity_handler:event(
               Zone, ?WARRIOR, {action, [?MOVE, Id, X, Y]}),
-            {reply, {ok, [Id, X, Y]}, State#state{pos_x = X, pos_y = Y}}
+            {reply, {ok, [Id, X, Y]}, State#player_state{pos_x = X, pos_y = Y}}
     end;
 
 handle_call({set_checkpoint, Value}, _From, State) ->
-    {reply, ok, State#state{checkpoint = Value}};
+    {reply, ok, State#player_state{checkpoint = Value}};
 
-handle_call({update_zone}, _From, State = #state{zone = OldZone, pos_x = X, pos_y = Y}) ->
+handle_call({update_zone}, _From, State = #player_state{zone = OldZone, pos_x = X, pos_y = Y}) ->
     %% Delete old zone and insert the new one
     NewZone = browserquest_srv_entity_handler:make_zone(X, Y),
     browserquest_srv_entity_handler:move_zone(OldZone, NewZone),
-    {reply, ok, State#state{zone = NewZone}};
+    {reply, ok, State#player_state{zone = NewZone}};
 
-handle_call({get_zone}, _From, State = #state{zone = Zone}) ->
+handle_call({get_zone}, _From, State = #player_state{zone = Zone}) ->
     {reply, {ok, Zone}, State};
 
-handle_call({get_surrondings}, _From, State = #state{actionlist = ActionList}) ->
-    {reply, ActionList, State#state{actionlist = []}};
+handle_call({get_surrondings}, _From, State = #player_state{actionlist = ActionList}) ->
+    {reply, ActionList, State#player_state{actionlist = []}};
 
-handle_call({chat, Message}, _From, State = #state{id = Id, zone = Zone}) ->
+handle_call({chat, Message}, _From, State = #player_state{id = Id, zone = Zone}) ->
     Action = [?CHAT, Id, Message],
     browserquest_srv_entity_handler:event(Zone, ?WARRIOR, {action, Action}),
     {reply, {ok, Action}, State};
 
-handle_call({attack, Target}, _From, State = #state{zone = Zone, target = Target}) ->
+handle_call({attack, Target}, _From, State = #player_state{zone = Zone, target = Target}) ->
     Action = [?ATTACK, Target],
     browserquest_srv_entity_handler:event(Zone, ?WARRIOR, {action, Action}),
     {reply, ok, State};
 
-handle_call({hit, Target}, _From, State = #state{local_cache = {Target, {Id, Armor}}, weapon = Weapon}) ->
+handle_call({hit, Target}, _From, State = #player_state{local_cache = {Target, {Id, Armor}}, weapon = Weapon}) ->
     Dmg = browserquest_srv_entity_handler:calculate_dmg(Armor, Weapon),
     browserquest_srv_mob:receive_damage(Target, Dmg),
     {reply, {ok, [?DAMAGE, Id, Armor]}, State};
 
-handle_call({hit, Target}, _From, State = #state{weapon = Weapon}) ->
+handle_call({hit, Target}, _From, State = #player_state{weapon = Weapon}) ->
     {ok, {Id, Armor}} = browserquest_srv_mob:get_armor(Target),
     Dmg = browserquest_srv_entity_handler:calculate_dmg(Armor, Weapon),
     browserquest_srv_mob:receive_damage(Target, Dmg),
-    {reply, {ok, [?DAMAGE, Id, Armor]}, State#state{local_cache = {Target, {Id, Armor}}}};
+    {reply, {ok, [?DAMAGE, Id, Armor]}, State#player_state{local_cache = {Target, {Id, Armor}}}};
 
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
@@ -176,7 +162,7 @@ handle_call(Request, From, State) ->
 handle_cast({stop}, State) ->
     {stop, normal, State};
 
-handle_cast({event, From, _, {action, [Initial,?SPAWN|Tl]}}, State = #state{id = Id, pos_x = X, pos_y = Y, name = Name, armor = Armor, weapon = Weapon, actionlist = ActionList}) ->
+handle_cast({event, From, _, {action, [Initial,?SPAWN|Tl]}}, State = #player_state{id = Id, pos_x = X, pos_y = Y, name = Name, armor = Armor, weapon = Weapon, actionlist = ActionList}) ->
     lager:debug("Action received: ~p", [[Initial,?SPAWN|Tl]]),
     case Initial of
 	true ->
@@ -185,10 +171,10 @@ handle_cast({event, From, _, {action, [Initial,?SPAWN|Tl]}}, State = #state{id =
 	    ok
     end,
     lager:debug("Found a new entity"),
-    {noreply, State#state{actionlist = [[?SPAWN|Tl]|ActionList]}};
+    {noreply, State#player_state{actionlist = [[?SPAWN|Tl]|ActionList]}};
 
-handle_cast({event, _From, _Type, {action, AC}}, State = #state{actionlist = ActionList}) ->
-    {noreply, State#state{actionlist = [AC|ActionList]}};
+handle_cast({event, _From, _Type, {action, AC}}, State = #player_state{actionlist = ActionList}) ->
+    {noreply, State#player_state{actionlist = [AC|ActionList]}};
 
 handle_cast(Msg, State) ->
     browserquest_srv_util:unexpected_cast(?MODULE, Msg, State),
@@ -198,7 +184,7 @@ handle_info(Info, State) ->
     browserquest_srv_util:unexpected_info(?MODULE, Info, State),
     {noreply, State}.
 
-terminate(_Reason, #state{zone = Zone}) ->
+terminate(_Reason, #player_state{zone = Zone}) ->
     browserquest_srv_entity_handler:unregister(Zone),
     ok.
 
