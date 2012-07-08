@@ -28,7 +28,7 @@
                 armor,
                 weapon,
                 hate,
-		hate_counter,
+                hate_counter,
                 item,
                 respawn_timout,
                 return_timeout,
@@ -103,6 +103,19 @@ handle_cast({event, From, ?WARRIOR, {action, [?MOVE, _Id, ?WARRIOR, X, Y, _Name,
     %% Hates on for you
     {noreply, State#state{hate = [From]}};
 
+handle_cast({event, From, ?WARRIOR, {action, [?MOVE, _Id, ?WARRIOR, X, Y, _Name,
+        _Orient, _Armor, _Weapon]}}, State) ->
+    %% Hates on for you
+    lager:debug("I'm gonna get ya!"),
+    {noreply, State};
+
+handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Id]}}, State) ->
+    %% Hates on for you
+    lager:debug("RETALIATE!", [State#state.id, Id]),
+    browserquest_srv_entity_handler:event(State#state.zone, State#state.type,
+        {action, [?ATTACK, State#state.id]}),
+    {noreply, State};
+
 %% A hero have spawned in our zone
 handle_cast({event, From, ?WARRIOR, {action, [_, ?SPAWN, _Id, ?WARRIOR, _X, _Y, _Name, _Orient, _Armor, _Weapon]}}, State = #state{id = Id, type = Type, pos_x = X, pos_y = Y}) ->
     gen_server:cast(From, {event, self(), Id, {action, [false, ?SPAWN, Id, Type, X, Y]}}),
@@ -113,7 +126,7 @@ handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Target]}}, State = #state
     {noreply, State#state{hate = [From]}};
 
 handle_cast({receive_damage, Amount}, State = #state{id = Id, zone = Zone, type = Type, hitpoints = HP}) ->
-    lager:debug("Receiving damage: ~p", [Amount]),
+    lager:debug("Receiving damage: ", [Amount]),
 
     Total = HP - Amount,
 
@@ -159,11 +172,11 @@ do_init(?RAT, State) ->
              {?BURGER, 15},
              {?FLASK, 55}],
 
-    State#state{hitpoints = 25,
+    State#state{hitpoints = 2500,
                 item = item(Drops, random:uniform(100)),
-                armor = 1,
-		range = 1,
-                weapon = 1};
+                armor = ?CLOTHARMOR,
+                range = 1,
+                weapon = ?SWORD1};
 do_init(?SKELETON, State) ->
     Drops = [{?FIREPOTION, 5},
              {?AXE, 25},
@@ -172,9 +185,9 @@ do_init(?SKELETON, State) ->
 
     State#state{hitpoints = 110,
                 item = item(Drops, random:uniform(100)),
-                armor = 2,
+                armor = ?LEATHERARMOR,
 		range = 3,
-                weapon = 2};
+                weapon = ?SWORD2};
 do_init(?GOBLIN, State) ->
     Drops = [{?FIREPOTION, 5},
              {?AXE, 15},
@@ -183,9 +196,9 @@ do_init(?GOBLIN, State) ->
 
     State#state{hitpoints = 90,
                 item = item(Drops, random:uniform(100)),
-                armor = 2,
+                armor = ?LEATHERARMOR,
 		range = 3,
-                weapon = 1};
+                weapon = ?SWORD1};
 do_init(?OGRE, State) ->
     Drops = [{?FIREPOTION, 5},
              {?BURGER, 15},
@@ -195,9 +208,9 @@ do_init(?OGRE, State) ->
 
     State#state{hitpoints = 200,
                 item = item(Drops, random:uniform(100)),
-                armor = 3,
+                armor = ?MAILARMOR,
 		range = 3,
-                weapon = 2};
+                weapon = ?SWORD2};
 do_init(?SPECTRE, State) ->
     Drops = [{?FIREPOTION, 5},
              {?REDSWORD, 35},
@@ -206,18 +219,18 @@ do_init(?SPECTRE, State) ->
 
     State#state{hitpoints = 250,
                 item = item(Drops, random:uniform(100)),
-                armor = 2,
+                armor = ?LEATHERARMOR,
 		range = 2,
-                weapon = 4};
+                weapon = ?GOLDENSWORD};
 do_init(?DEATHKNIGHT, State) ->
     Drops = [{?BURGER, 95},
              {?FIREPOTION, 100}],
 
     State#state{hitpoints = 250,
                 item = item(Drops, random:uniform(100)),
-                armor = 3,
+                armor = ?MAILARMOR,
 		range = 5,
-                weapon = 3};
+                weapon = ?REDSWORD};
 do_init(?CRAB, State) ->
     Drops = [{?FIREPOTION, 5},
              {?LEATHERARMOR, 15},
@@ -226,9 +239,9 @@ do_init(?CRAB, State) ->
 
     State#state{hitpoints = 60,
                 item = item(Drops, random:uniform(100)),
-                armor = 2,
+                armor = ?LEATHERARMOR,
 		range = 5,
-                weapon = 1};
+                weapon = ?SWORD1};
 do_init(?SNAKE, State) ->
     Drops = [{?FIREPOTION, 5},
              {?MORNINGSTAR, 15},
@@ -237,9 +250,9 @@ do_init(?SNAKE, State) ->
 
     State#state{hitpoints = 60,
                 item = item(Drops, random:uniform(100)),
-                armor = 2,
+                armor = ?LEATHERARMOR,
 		range = 3,
-                weapon = 1};
+                weapon = ?SWORD1};
 do_init(?SKELETON2, State) ->
     Drops = [{?FIREPOTION, 5},
              {?BLUESWORD, 20},
@@ -248,9 +261,9 @@ do_init(?SKELETON2, State) ->
 
     State#state{hitpoints = 200,
                 item = item(Drops, random:uniform(100)),
-                armor = 3,
+                armor = ?MAILARMOR,
 		range = 4,
-                weapon = 3};
+                weapon = ?REDSWORD};
 do_init(?EYE, State) ->
     Drops = [{?FIREPOTION, 5},
              {?REDSWORD, 15},
@@ -259,9 +272,9 @@ do_init(?EYE, State) ->
 
     State#state{hitpoints = 200,
                 item = item(Drops, random:uniform(100)),
-                armor = 3,
+                armor = ?MAILARMOR,
 		range = 1,
-                weapon = 3};
+                weapon = ?REDSWORD};
 do_init(?BAT, State) ->
     Drops = [{?FIREPOTION, 5},
              {?AXE, 15},
@@ -269,9 +282,9 @@ do_init(?BAT, State) ->
 
     State#state{hitpoints = 80,
                 item = item(Drops, random:uniform(100)),
-                armor = 2,
+                armor = ?LEATHERARMOR,
 		range = 2,
-                weapon = 1};
+                weapon = ?SWORD1};
 do_init(?WIZARD, State) ->
     Drops = [{?FIREPOTION, 5},
              {?PLATEARMOR, 25},
@@ -279,15 +292,15 @@ do_init(?WIZARD, State) ->
 
     State#state{hitpoints = 100,
                 item = item(Drops, random:uniform(100)),
-                armor = 2,
+                armor = ?LEATHERARMOR,
 		range = 5,
-                weapon = 6};
+                weapon = ?AXE};
 do_init(?BOSS, State) ->
     State#state{hitpoints = 100,
                 item = ?GOLDENSWORD,
-                armor = 2,
-		range = 9,
-                weapon = 6};
+                armor = ?LEATHERARMOR,
+                range = 9,
+                weapon = ?AXE};
 do_init(_Type, State) ->
     lager:error("Unknown mob type initialization"),
     State.

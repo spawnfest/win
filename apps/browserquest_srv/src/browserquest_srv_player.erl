@@ -38,8 +38,8 @@
 -record(state, {
 	  id,
 	  name,
-	  armor,
-	  weapon,
+	  armor = ?CLOTHARMOR,
+	  weapon = ?SWORD1,
 	  hitpoints,
 	  pos_x,
 	  pos_y,
