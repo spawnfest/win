@@ -60,11 +60,16 @@ init([]) ->
     Shutdown = 2000,
     Type = worker,
     {ok, MapFile} = application:get_env(world_map),
-    Map = {browserquest_srv_map,
-           {browserquest_srv_map, start_link, [MapFile]},
-           Restart, Shutdown, Type, [browserquest_srv_map]},
+    Map = 
+        {browserquest_srv_map,
+         {browserquest_srv_map, start_link, [MapFile]},
+         Restart, Shutdown, Type, [browserquest_srv_map]},
+    PlayerHandler = 
+        {browserquest_srv_player_handler,
+         {browserquest_srv_player_handler, start_link, []},
+         Restart, Shutdown, Type, [browserquest_srv_player_handler]},
     
-    {ok, {SupFlags, [Map]}}.
+    {ok, {SupFlags, [Map, PlayerHandler]}}.
 
 %%%===================================================================
 %%% Internal functions

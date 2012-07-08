@@ -83,8 +83,7 @@ stop(Pid) ->
 init([Name, Armor, Weapon]) ->
     Id = generate_id(),
     Hitpoints = ?CALC_HP(Armor),
-    PosX = 10,
-    PosY = 10,
+    {PosX, PosY} = {10,10},
     
     Zone = make_zone(PosX, PosY),
 
@@ -105,9 +104,16 @@ handle_call({get_status}, _From, State = #state{id = Id, name = Name, zone = Zon
     browserquest_srv_player_handler:register(Zone, {action, [true, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}),
     {reply, {ok, [Id, Name, X, Y, HP]}, State};
 
-handle_call({move, X, Y}, _From, State = #state{id = Id, zone = Zone}) ->
-    browserquest_srv_player_handler:event(Zone, {action, [?MOVE, Id, X, Y]}),
-    {reply, {ok, [Id, X, Y]}, State#state{pos_x = X, pos_y = Y}};
+handle_call({move, X, Y}, _From, State = #state{pos_x = OldX, pos_y = OldY,
+                                                id = Id, zone = Zone}) ->
+    case browserquest_srv_map:is_out_of_bounds(X, Y) of
+        true ->
+            {reply, {ok, [Id, OldX, OldY]}, State};
+        _ ->
+            browserquest_srv_player_handler:event(
+              Zone, {action, [?MOVE, Id, X, Y]}),
+            {reply, {ok, [Id, X, Y]}, State#state{pos_x = X, pos_y = Y}}
+    end;
 
 handle_call({set_checkpoint, Value}, _From, State) ->
     {reply, ok, State#state{checkpoint = Value}};
@@ -173,8 +179,9 @@ generate_id() ->
     random:uniform(1000000).
 
 make_zone(PosX, PosY) ->
-    Zone = erlang:trunc(PosX/(PosX rem 28))*erlang:trunc(PosY/(PosY rem 11)),
-    ZoneString = erlang:integer_to_list(Zone),
+    %%Zone = erlang:trunc(PosX/(PosX rem 28))*erlang:trunc(PosY/(PosY rem 11)),
+    ZoneString = erlang:integer_to_list(PosX) ++ "x" ++ 
+        erlang:integer_to_list(PosY) ++ "y",
     ensure_bin("ZONE"++ZoneString).
 
 ensure_bin(Int) when is_integer(Int) ->
