@@ -9,9 +9,10 @@ Features:
     * Player login and movement works. Map collision detection and
       player start position generation.
     * Basic monster spawning and fighting.
-    * Different architecture than the original nodeJS backend; we hope to add
-      more scalability features later on. The architecture is event-based and
-      players, monsters and items are mapped as Erlang processes.
+    * Different architecture compared to original nodeJS backend; 
+      we hope to add more scalability features later on. The architecture 
+      is event-based and players, monsters and items are mapped as Erlang 
+      processes.
 
 Future:
     * Support item drops and static NPCs.
@@ -21,15 +22,20 @@ Installation:
 Backend:
 
 1. git clone git@github.com:Spawnfest2012/win.git
+2. cd win
 2. ./rebar get-deps
 3. ./rebar compile
 4. ./init.sh
-5. Start Client (see below)
+5. Launch a new terminal
+6. Start Client (see below)
 
 Client:
 
-1. git clone git://github.com/sedrik/BrowserQuest.git
-3. Launch backend.
-4. Point browser to client/index.html
+1. git clone git@github.com:Gustav-Simonsson/BrowserQuest.git
+2. Launch backend.
+3. Point browser to BrowserQuest/client/index.html
+4. If you cannot connect, check the config files in BrowserQuest/client/config
+   for host/port settings. Default port in backend is set to 8000 but can be 
+   changed in the app.src
 
 The original BrowserQuest repo is at https://github.com/mozilla/BrowserQuest
