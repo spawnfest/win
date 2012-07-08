@@ -101,7 +101,7 @@ init([Name, Armor, Weapon]) ->
     
     Zone = browserquest_srv_entity_handler:make_zone(PosX, PosY),
 
-    lager:debug("Player zone: ~p", [Zone]),
+    lager:debug("Weapon ~p", [Weapon]),
     {ok, #state{
        id = Id,
        name = Name,
@@ -166,15 +166,15 @@ handle_call({attack, Target}, _From, State = #state{zone = Zone}) ->
     {reply, ok, State};
 
 handle_call({hit, Target}, _From, State = #state{local_cache = {Target, {Id, Armor}}, weapon = Weapon}) ->
-    Dmg = browserquest_srv_entity_handler:calculate_dmg(Armor, Weapon),
+    Dmg = browserquest_srv_entity_handler:calculate_dmg(get_armor_lvl(Armor), get_weapon_lvl(Weapon)),
     browserquest_srv_mob:receive_damage(Target, Dmg),
-    {reply, {ok, [?DAMAGE, Id, Armor]}, State};
+    {reply, {ok, [?DAMAGE, Id, Dmg]}, State};
 
 handle_call({hit, Target}, _From, State = #state{weapon = Weapon}) ->
     {ok, {Id, Armor}} = browserquest_srv_mob:get_armor(Target),
-    Dmg = browserquest_srv_entity_handler:calculate_dmg(Armor, Weapon),
+    Dmg = browserquest_srv_entity_handler:calculate_dmg(get_armor_lvl(Armor), get_weapon_lvl(Weapon)),
     browserquest_srv_mob:receive_damage(Target, Dmg),
-    {reply, {ok, [?DAMAGE, Id, Armor]}, State#state{local_cache = {Target, {Id, Armor}}}};
+    {reply, {ok, [?DAMAGE, Id, Dmg]}, State#state{local_cache = {Target, {Id, Armor}}}};
 
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
@@ -217,3 +217,17 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+get_weapon_lvl(60) -> 1;
+get_weapon_lvl(61) -> 2;
+get_weapon_lvl(65) -> 3;
+get_weapon_lvl(64) -> 4;
+get_weapon_lvl(66) -> 5;
+get_weapon_lvl(62) -> 6; 
+get_weapon_lvl(63) -> 7.
+
+get_armor_lvl(21) -> 1;
+get_armor_lvl(22) -> 2; 
+get_armor_lvl(23) -> 3; 
+get_armor_lvl(24) -> 4;
+get_armor_lvl(25) -> 5; 
+get_armor_lvl(26) -> 6.
