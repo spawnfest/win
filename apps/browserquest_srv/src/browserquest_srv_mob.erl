@@ -53,9 +53,10 @@ receive_damage(Amounth) ->
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
-init([Type, X, Y]) ->
+init([T, X, Y]) ->
     Id = browserquest_srv_entity_handler:generate_id("1"),
     Zone = browserquest_srv_entity_handler:make_zone(X, Y),
+    Type = browserquest_srv_util:type_to_internal(T),
     State = do_init(
 	      Type, 
 	      #state{id = Id, type = Type, pos_x = X, pos_y = Y}
