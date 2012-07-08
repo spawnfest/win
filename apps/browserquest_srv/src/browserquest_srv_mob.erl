@@ -12,7 +12,7 @@
 -include("../include/browserquest.hrl").
 
 %% API
--export([start_link/4, receive_damage/1]).
+-export([start_link/3, receive_damage/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -23,7 +23,8 @@
 -record(state, {id,
                 type,
                 hitpoints,
-                pos_x, pos_y,
+                pos_x, 
+		pos_y,
                 armor,
                 weapon,
                 hate,
@@ -33,14 +34,15 @@
                 is_dead = false,
                 orientation, %TODO initalize in init
                 attackers = [],
+		range,
                 target
             }).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
-start_link(Id, Type, X, Y) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [Id, Type, X, Y], []).
+start_link(Type, X, Y) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [Type, X, Y], []).
 
 %%%===================================================================
 %%% Game API
@@ -51,15 +53,26 @@ receive_damage(Amounth) ->
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
-init([Id, Type, X, Y]) ->
-    %TODO check what to get from mob's Super in js
-    State = #state{id = Id, type = Type, pos_x = X, pos_y = Y},
-    {ok, do_init(Type, State)}.
+init([Type, X, Y]) ->
+    Id = browserquest_srv_entity_handler:generate_id("1"),
+    Zone = browserquest_srv_entity_handler:make_zone(X, Y),
+    State = do_init(
+	      Type, 
+	      #state{id = Id, type = Type, pos_x = X, pos_y = Y}
+	     ),
+
+    browserquest_srv_entity_handler:register(Zone, Type, {action, [false, ?SPAWN, Id, Type, ?DOWN]}),
+    {ok, State}.
+
 
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
     Reply = ok,
     {reply, Reply, State}.
+
+handle_cast({event, _From, ?WARRIOR, {action, [?MOVE, X, Y]}}, State = #state{range = Range, pos_x = PX, pos_y = PY, hate = Hate}) when Hate =:= [] andalso ((PX-Range < X andalso X < (PX+Range)) orelse ((PY-Range) < Y andalso Y < (PY+Range))) ->
+    %% Hates on for you
+    {reply, ok, State};
 
 handle_cast({receive_damage, Amounth}, State) ->
     {reply, ok, do_receive_damage(Amounth, State)};
@@ -107,6 +120,7 @@ do_init(?RAT, State) ->
     State#state{hitpoints = 25,
                 item = item(Drops, random:uniform(100)),
                 armor = 1,
+		range = 1,
                 weapon = 1};
 do_init(?SKELETON, State) ->
     Drops = [{?FIREPOTION, 5},
@@ -117,6 +131,7 @@ do_init(?SKELETON, State) ->
     State#state{hitpoints = 110,
                 item = item(Drops, random:uniform(100)),
                 armor = 2,
+		range = 3,
                 weapon = 2};
 do_init(?GOBLIN, State) ->
     Drops = [{?FIREPOTION, 5},
@@ -127,6 +142,7 @@ do_init(?GOBLIN, State) ->
     State#state{hitpoints = 90,
                 item = item(Drops, random:uniform(100)),
                 armor = 2,
+		range = 3,
                 weapon = 1};
 do_init(?OGRE, State) ->
     Drops = [{?FIREPOTION, 5},
@@ -138,6 +154,7 @@ do_init(?OGRE, State) ->
     State#state{hitpoints = 200,
                 item = item(Drops, random:uniform(100)),
                 armor = 3,
+		range = 3,
                 weapon = 2};
 do_init(?SPECTRE, State) ->
     Drops = [{?FIREPOTION, 5},
@@ -148,6 +165,7 @@ do_init(?SPECTRE, State) ->
     State#state{hitpoints = 250,
                 item = item(Drops, random:uniform(100)),
                 armor = 2,
+		range = 2,
                 weapon = 4};
 do_init(?DEATHKNIGHT, State) ->
     Drops = [{?BURGER, 95},
@@ -156,6 +174,7 @@ do_init(?DEATHKNIGHT, State) ->
     State#state{hitpoints = 250,
                 item = item(Drops, random:uniform(100)),
                 armor = 3,
+		range = 5,
                 weapon = 3};
 do_init(?CRAB, State) ->
     Drops = [{?FIREPOTION, 5},
@@ -166,6 +185,7 @@ do_init(?CRAB, State) ->
     State#state{hitpoints = 60,
                 item = item(Drops, random:uniform(100)),
                 armor = 2,
+		range = 5,
                 weapon = 1};
 do_init(?SNAKE, State) ->
     Drops = [{?FIREPOTION, 5},
@@ -176,6 +196,7 @@ do_init(?SNAKE, State) ->
     State#state{hitpoints = 60,
                 item = item(Drops, random:uniform(100)),
                 armor = 2,
+		range = 3,
                 weapon = 1};
 do_init(?SKELETON2, State) ->
     Drops = [{?FIREPOTION, 5},
@@ -186,6 +207,7 @@ do_init(?SKELETON2, State) ->
     State#state{hitpoints = 200,
                 item = item(Drops, random:uniform(100)),
                 armor = 3,
+		range = 4,
                 weapon = 3};
 do_init(?EYE, State) ->
     Drops = [{?FIREPOTION, 5},
@@ -196,6 +218,7 @@ do_init(?EYE, State) ->
     State#state{hitpoints = 200,
                 item = item(Drops, random:uniform(100)),
                 armor = 3,
+		range = 1,
                 weapon = 3};
 do_init(?BAT, State) ->
     Drops = [{?FIREPOTION, 5},
@@ -205,6 +228,7 @@ do_init(?BAT, State) ->
     State#state{hitpoints = 80,
                 item = item(Drops, random:uniform(100)),
                 armor = 2,
+		range = 2,
                 weapon = 1};
 do_init(?WIZARD, State) ->
     Drops = [{?FIREPOTION, 5},
@@ -214,11 +238,13 @@ do_init(?WIZARD, State) ->
     State#state{hitpoints = 100,
                 item = item(Drops, random:uniform(100)),
                 armor = 2,
+		range = 5,
                 weapon = 6};
 do_init(?BOSS, State) ->
     State#state{hitpoints = 100,
                 item = ?GOLDENSWORD,
                 armor = 2,
+		range = 9,
                 weapon = 6};
 do_init(_Type, State) ->
     lager:error("Unknown mob type initialization"),

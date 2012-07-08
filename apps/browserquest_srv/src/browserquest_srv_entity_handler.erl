@@ -13,11 +13,13 @@
 %% API
 -export([
 	 start_link/0,
-	 register/2,
+	 register/3,
 	 register_static/2,
 	 unregister/1,
-	 event/2,
-	 move_zone/2
+	 event/3,
+	 move_zone/2,
+	 make_zone/2,
+	 generate_id/1
 	]).
 
 %% gen_server callbacks
@@ -44,10 +46,10 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-register(Zone, SpawnInfo) ->
+register(Zone, Type, SpawnInfo) ->
     Pid = self(),
     gen_server:call(?MODULE, {register, Pid, Zone}),
-    event(Zone, SpawnInfo).
+    event(Zone, Type, SpawnInfo).
 
 register_static(Zone, SpawnInfo) ->
     Pid = self(),
@@ -57,9 +59,9 @@ unregister(Zone) ->
     Pid = self(),
     gen_server:call(?MODULE, {unregister, Pid, Zone}).
 
-event(Zone, Message) ->
+event(Zone, Type, Message) ->
     Pid = self(),
-    gen_server:call(?MODULE, {event, Pid, Zone, Message}).
+    gen_server:call(?MODULE, {event, Pid, Zone, Type, Message}).
 
 move_zone(OldZone, NewZone) ->
     Pid = self(),
@@ -110,10 +112,10 @@ handle_call({unregister, Pid, Zone}, _From, State = #state{zones = Zones}) ->
 				     end, [], Zones),
     {reply, ok, State#state{zones = UpdatedZones}};
 
-handle_call({event, Pid, Zone, Message}, _From, State = #state{zones = Zones}) ->
+handle_call({event, Pid, Zone, Type, Message}, _From, State = #state{zones = Zones}) ->
     case dict:find(Zone, Zones) of
 	{ok, Nodes} ->
-	    [ gen_server:cast(Node, {event, Pid, Message}) || Node <- Nodes, Node /= Pid, Node /= {static, Pid} ];
+	    [ gen_server:cast(Node, {event, Pid, Type, Message}) || Node <- Nodes, Node /= Pid, Node /= {static, Pid} ];
 	_ ->
 	    []
     end,
@@ -177,24 +179,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-decode_term(Object) ->
-  case riakc_obj:get_content_type(Object) of
-    "application/x-erlang-term" ->
-      try
-        {ok, binary_to_term(riakc_obj:get_value(Object))}
-      catch
-        _:Reason ->
-          {error, Reason}
-      end;
-    Ctype ->
-      {error, {unknown_ctype, Ctype}}
-  end.
-
-encode_term(Object, Term) ->
-  riakc_obj:update_value(Object, term_to_binary(Term, [compressed]),
-  <<"application/x-erlang-term">>).
-
-
 ensure_bin(Int) when is_integer(Int) ->
     ensure_bin(erlang:integer_to_list(Int));
 ensure_bin(List) when is_list(List) ->
@@ -209,3 +193,7 @@ make_zone(PosX, PosY) ->
     Zone = erlang:trunc(PosX/(PosX rem 28))*erlang:trunc(PosY/(PosY rem 11)),
     ZoneString = erlang:integer_to_list(Zone),
     ensure_bin("ZONE"++ZoneString).
+
+generate_id(InitialValue) when is_list(InitialValue) ->
+    random:seed(erlang:now()),
+    [InitialValue|erlang:integer_to_list(random:uniform(1000000))].
