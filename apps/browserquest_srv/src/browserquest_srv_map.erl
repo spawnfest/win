@@ -22,7 +22,7 @@
 -define(SERVER, ?MODULE). 
 
 -record(map, {json, attributes}).
-
+-record(cp, {id, x, y, w, h}).
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -39,7 +39,10 @@ is_colliding(X, Y) ->
     gen_server:call(?SERVER, {is_colliding, X, Y}).
 
 is_out_of_bounds(X, Y) ->
-    gen_server:call(?SERVER, {is_out_of_bounds, X, Y}).    
+    gen_server:call(?SERVER, {is_out_of_bounds, X, Y}).
+
+get_random_starting_position() ->
+    gen_server:call(?SERVER, get_random_starting_pos).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -55,12 +58,22 @@ init([MapName]) ->
 
     CollisionGrid = 
         get_collision_grid(Height, Width, get_json_value("collisions", Json)),
+    
+    Checkpoints = lists:map(fun get_checkpoint/1,
+                            get_json_value("checkpoints", Json)),
 
+    %% Change this to a subset of checkpoints? Mysterious .s field
+    %% in cp in map.js.
+    StartingAreas = Checkpoints,
+                            
     PropList = [{"width", Width}, {"height", Height},
                 {"zoneWidth", ZoneWidth}, {"zoneHeight", ZoneHeight},
                 {"groupWidth", trunc(Width / ZoneWidth)},
                 {"groupHeight", trunc(Height / ZoneHeight)},
-                {"collisionGrid", CollisionGrid}],
+                {"collisionGrid", CollisionGrid},
+                {"startingAreas", StartingAreas},
+                {"checkpoints", Checkpoints}
+               ],
     
     Map = #map{json = Json, attributes = PropList},
     {ok, Map}.
@@ -71,11 +84,9 @@ handle_call({is_colliding, X, Y}, _From, #map{attributes = PL} = Map) ->
     Grid = proplists:get_value("collisionGrid", PL),
     {reply, do_is_colliding(X, Y, Grid), Map};
 handle_call({is_out_of_bounds, X, Y}, _From, #map{attributes = PL} = Map) ->
-    Height = proplists:get_value("height", PL),
-    Width = proplists:get_value("width", PL),
-    io:format("~p~n", [{X,Width,Y,Height}]),
-    Reply = (X < 1) or (X >= Width) or (Y < 1) or (Y >= Height),
-    {reply, Reply, Map};
+    {reply, do_is_out_of_bounds(X, Y, PL), Map};
+handle_call(get_random_starting_pos, _From, #map{attributes = PL} = Map) ->
+    {reply, do_get_random_starting_pos(PL), Map};    
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
     Reply = ok,
@@ -127,3 +138,29 @@ set_array_element({{Y,X}, TileIndex}, Array, Collisions) ->
 
 do_is_colliding(X, Y, Grid) ->    
     array:get(Y - 1, array:get(X - 1, Grid)) == 1.
+
+get_checkpoint(CP) ->
+    [Id,X,Y,W,H] = [get_json_value(A, CP) || A <- ["id","x","y","w","h"]],
+    #cp{id=Id,x=X,y=Y,w=W,h=H}.
+
+do_get_random_starting_pos(PL) ->
+    StartingAreas = proplists:get_value("startingAreas", PL),
+    random:seed(erlang:now()),
+    Id = random:uniform(length(StartingAreas)),
+    #cp{x = X, y = Y} = lists:keyfind(Id, #cp.id, StartingAreas),
+    F = fun(X1,Y1) -> do_is_out_of_bounds(X1, Y1, PL) end,
+    get_valid(X, Y, false, F).
+
+get_valid(X, Y, true, _) -> {X, Y};
+get_valid(X, Y, _, F) ->
+    Op = fun() -> case random:uniform(2) of 1 -> '+'; _ -> '+' end end,
+    Xn = erlang:(Op())(X,random:uniform(3)),
+    Yn = erlang:(Op())(Y,random:uniform(3)),
+    get_valid(Xn, Yn, F(Xn, Yn), F).
+    
+do_is_out_of_bounds(X, Y, PL) ->
+    Height = proplists:get_value("height", PL),
+    Width = proplists:get_value("width", PL),
+    (X < 1) or (X >= Width) or (Y < 1) or (Y >= Height).    
+
+
