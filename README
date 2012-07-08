@@ -1,4 +1,19 @@
-
 Backend to BrowserQuest (http://browserquest.mozilla.org/) written in Erlang/OTP.
 
 We make use of Cowboy to connect the BrowserQuest client to our backend.
+
+Installation:
+Backend:
+
+1. git clone git@github.com:Spawnfest2012/win.git
+2. ./rebar get-deps
+3. ./rebar compile
+4. ./init.sh
+5. Start Client (see below)
+
+Client:
+
+1. git clone git://github.com/mozilla/BrowserQuest.git
+2. Edit config files in client/config to use 127.0.0.1 and port 8000
+3. Launch backend.
+4. Point browser to client/index.html
