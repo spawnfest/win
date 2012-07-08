@@ -83,7 +83,6 @@ init([Name, Armor, Weapon]) ->
     CPs = browserquest_srv_map:get_attribute("startingAreas"),
     random:seed(erlang:now()),
     #cp{x = PosX, y = PosY} = lists:nth(random:uniform(length(CPs)), CPs),
-%%    {PosX, PosY} = {10,10},
     
     Zone = browserquest_srv_entity_handler:make_zone(PosX, PosY),
 
@@ -121,10 +120,11 @@ handle_call({move, X, Y}, _From, State = #player_state{pos_x = OldX, pos_y = Old
 handle_call({set_checkpoint, Value}, _From, State) ->
     {reply, ok, State#player_state{checkpoint = Value}};
 
-handle_call({update_zone}, _From, State = #player_state{zone = OldZone, pos_x = X, pos_y = Y}) ->
+handle_call({update_zone}, _From, State = #player_state{zone = OldZone, id = Id, name = Name, armor = Armor, weapon = Weapon, pos_x = X, pos_y = Y}) ->
     %% Delete old zone and insert the new one
     NewZone = browserquest_srv_entity_handler:make_zone(X, Y),
-    browserquest_srv_entity_handler:move_zone(OldZone, NewZone),
+    browserquest_srv_entity_handler:unregister(OldZone),
+    browserquest_srv_entity_handler:register(NewZone, ?WARRIOR, Id, {action, [true, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}),
     {reply, ok, State#player_state{zone = NewZone}};
 
 handle_call({get_zone}, _From, State = #player_state{zone = Zone}) ->
@@ -138,8 +138,15 @@ handle_call({chat, Message}, _From, State = #player_state{id = Id, zone = Zone})
     browserquest_srv_entity_handler:event(Zone, ?WARRIOR, {action, Action}),
     {reply, {ok, Action}, State};
 
-handle_call({attack, Target}, _From, State = #player_state{zone = Zone, target = Target}) ->
-    Action = [?ATTACK, Target],
+handle_call({attack, Target}, _From, State = #player_state{zone = Zone}) ->
+    Action =
+	case Target of
+	    _IntTarget when is_integer(Target) ->
+		[?ATTACK, erlang:integer_to_list(Target)];
+	    _ ->
+		[?ATTACK, Target]
+	end,
+
     browserquest_srv_entity_handler:event(Zone, ?WARRIOR, {action, Action}),
     {reply, ok, State};
 
@@ -173,7 +180,9 @@ handle_cast({event, From, _, {action, [Initial,?SPAWN|Tl]}}, State = #player_sta
     lager:debug("Found a new entity"),
     {noreply, State#player_state{actionlist = [[?SPAWN|Tl]|ActionList]}};
 
-handle_cast({event, _From, _Type, {action, AC}}, State = #player_state{actionlist = ActionList}) ->
+handle_cast({event, _From, _Type, {action, AC}}, 
+            State = #player_state{actionlist = ActionList}) ->
+    lager:debug("Got event: ~p", [AC]),
     {noreply, State#player_state{actionlist = [AC|ActionList]}};
 
 handle_cast(Msg, State) ->

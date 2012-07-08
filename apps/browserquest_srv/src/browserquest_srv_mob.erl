@@ -35,7 +35,8 @@
                 orientation, %TODO initalize in init
                 attackers = [],
                 range,
-                target
+                target,
+		zone
             }).
 
 %%%===================================================================
@@ -68,18 +69,17 @@ init([BinType, X, Y]) ->
     Id = browserquest_srv_entity_handler:generate_id("1"),
     Zone = browserquest_srv_entity_handler:make_zone(X, Y),
     Type = browserquest_srv_util:type_to_internal(BinType),
-    _Orientation = random:uniform(4),
+    Orientation = random:uniform(4),
     State = do_init(
 	      Type, 
 	      #state{id = Id, type = Type,
 		     pos_x = X, pos_y = Y,
-		     orientation = random:uniform(4)}
+		     orientation = Orientation}
 	     ),
 
-    lager:debug("Mob zone: ~p", [Zone]),
     browserquest_srv_entity_handler:register(Zone, Type, Id, {action, [false,
                 ?SPAWN, Id, Type, X, Y]}),
-    {ok, State}.
+    {ok, State#state{zone = Zone, id = Id, type = Type}}.
 
 
 handle_call({get_armor}, _From, State = #state{id = Id, armor = Armor}) ->
@@ -88,7 +88,7 @@ handle_call({get_armor}, _From, State = #state{id = Id, armor = Armor}) ->
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
     Reply = ok,
-    {reply, Reply, State}.
+    {reply, ok, State}.
 
 handle_cast({tick}, State = #state{hate = _Hate, hitpoints = HP}) ->
     case HP of
@@ -97,30 +97,38 @@ handle_cast({tick}, State = #state{hate = _Hate, hitpoints = HP}) ->
 	_ ->
 	    ok
     end,
-    {noreply, ok, State};
+    {noreply, State};
 
-handle_cast({event, From, ?WARRIOR, {action, [?MOVE, Id, X, Y]}}, State = #state{range = Range, pos_x = PX, pos_y = PY, hate = Hate}) when Hate =:= [] andalso ((PX-Range < X andalso X < (PX+Range)) orelse ((PY-Range) < Y andalso Y < (PY+Range))) ->
+handle_cast({event, From, ?WARRIOR, {action, [?MOVE, _Id, ?WARRIOR, X, Y, _Name, _Orient, _Armor, _Weapon]}}, State = #state{range = Range, pos_x = PX, pos_y = PY, hate = Hate}) when Hate =:= [] andalso ((PX-Range < X andalso X < (PX+Range)) orelse ((PY-Range) < Y andalso Y < (PY+Range))) ->
     %% Hates on for you
-    {noreply, ok, State#state{hate = [From]}};
+    {noreply, State#state{hate = [From]}};
 
-handle_cast({event, _From, ?WARRIOR, {action, [?MOVE, _Id, _X, _Y]}}, State) ->
-    {noreply, ok, State};
+%% A hero have spawned in our zone
+handle_cast({event, From, ?WARRIOR, {action, [_, ?SPAWN, _Id, ?WARRIOR, _X, _Y, _Name, _Orient, _Armor, _Weapon]}}, State = #state{id = Id, type = Type, pos_x = X, pos_y = Y}) ->
+    gen_server:cast(From, {event, self(), Id, {action, [false, ?SPAWN, Id, Type, X, Y]}}),
+    {noreply, State};
 
 handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Target]}}, State = #state{id = Target}) ->
     %% I'm gonna KILL you
-    {noreply, ok, State#state{hate = [From]}};
+    {noreply, State#state{hate = [From]}};
 
 handle_cast({receive_damage, Amount}, 
-            State = #state{hitpoints = HP, item = Item,
-                           pos_x = X, pos_y = Y}) ->
-    case do_receive_damage(Amount, HP) of
-        death ->
+            State = #state{id = Id, zone = Zone, type = Type, hitpoints = HP,
+                           item = Item, pos_x = X, pos_y = Y}) ->
+    lager:debug("Receiving damage: ~p", [Amount]),
+    Total = HP - Amount,
+    NewState = State#state{hitpoints = Total},
+    case Total =< 0 of
+        true ->
+	    browserquest_srv_entity_handler:event(
+              Zone, Type, {action, [?DESPAWN, Id]}),
+	    browserquest_srv_entity_handler:unregister(Zone),
             drop_item(Item, X, Y),
-            resurrection(State),
-            {stop, normal, State};
-        _ ->
-            {noreply, ok, State}
+	    {stop, normal, NewState};
+        false ->
+            {noreply, NewState}
     end;
+
 handle_cast(Msg, State) ->
     browserquest_srv_util:unexpected_cast(?MODULE, Msg, State),
     {noreply, State}.
@@ -130,16 +138,7 @@ handle_info(Info, State) ->
     {noreply, State}.
 
 terminate(_Reason, _State) ->
-    %TODO DEATH!
-    %destroy: function() {
-    %    this.isDead = true;
-    %    this.hatelist = [];
-    %    this.clearTarget();
-    %    this.updateHitPoints();
-    %    this.resetPosition();
-    %    
-    %    this.handleRespawn();
-    %},
+    timer:sleep(30000),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -157,19 +156,6 @@ drop_item(Item, X, Y) ->
     Fun = fun() -> browserquest_srv_item:create(Item, Args) end,
     spawn(Fun),
     ok.
-
-resurrection(#state{type = Type, pos_x = X, pos_y = Y}) ->
-    Fun = fun() -> timer:sleep(30000),
-                   browserquest_srv_mob_sup:add_child(Type, X, Y)
-          end,
-    spawn(Fun),
-    ok.
-do_receive_damage(Amount, HP) ->
-    Total = HP - Amount,
-    case Total =< 0 of
-        true -> death;
-        false -> life
-    end.
 
 %% Calculate the item dropped. The Item list needs to be sorted in ascending
 %% order for it to work properly.
