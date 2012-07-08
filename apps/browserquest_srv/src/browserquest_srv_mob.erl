@@ -12,7 +12,7 @@
 -include("../include/browserquest.hrl").
 
 %% API
--export([start_link/3, receive_damage/2, get_armor/1]).
+-export([start_link/3, receive_damage/2, get_stats/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -54,12 +54,12 @@ receive_damage(Target, Amount) ->
     {ok, Pid} = browserquest_srv_entity_handler:get_target(Target),
     receive_damage(Pid, Amount).
 
-get_armor(Pid) when is_pid(Pid) ->
-    lager:debug("Trying to get armor from Pid: ~p", [Pid]),
-    gen_server:call(Pid, {get_armor});
-get_armor(Target) ->
+get_stats(Pid) when is_pid(Pid) ->
+    lager:debug("Trying to get stats from Pid: ~p", [Pid]),
+    gen_server:call(Pid, {get_stats});
+get_stats(Target) ->
     {ok, Pid} = browserquest_srv_entity_handler:get_target(Target),
-    get_armor(Pid).
+    get_stats(Pid).
 
 
 %%%===================================================================
@@ -82,8 +82,8 @@ init([BinType, X, Y]) ->
     {ok, State#state{zone = Zone, id = Id, type = Type}}.
 
 
-handle_call({get_armor}, _From, State = #state{id = Id, armor = Armor}) ->
-    {reply, {ok, {Id, Armor}}, State};
+handle_call({get_stats}, _From, State = #state{id = Id, weapon = Weapon, armor = Armor}) ->
+    {reply, {ok, {Id, Weapon, Armor}}, State};
 
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
@@ -108,9 +108,16 @@ handle_cast({event, From, ?WARRIOR, {action, [_, ?SPAWN, _Id, ?WARRIOR, _X, _Y, 
     gen_server:cast(From, {event, self(), Id, {action, [false, ?SPAWN, Id, Type, X, Y]}}),
     {noreply, State};
 
-handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Target]}}, State = #state{id = Target}) ->
-    %% I'm gonna KILL you
-    {noreply, State#state{hate = [From]}};
+handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Target]}}, State = #state{zone = Zone, type = Type, id = Id}) ->
+    case erlang:integer_to_list(Id) of
+	Target ->
+	    %% I'm gonna KILL you
+	    browserquest_srv_entity_handler:event(
+	      Zone, Type, {action, [?ATTACK, Id]}),
+	    {noreply, State#state{hate = [From]}};
+	_ ->
+	    {noreply, State}
+    end;
 
 handle_cast({receive_damage, Amount}, 
             State = #state{id = Id, zone = Zone, type = Type, hitpoints = HP,

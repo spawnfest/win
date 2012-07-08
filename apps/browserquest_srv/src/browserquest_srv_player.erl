@@ -23,7 +23,8 @@
 	 chat/2,
 	 stop/1,
 	 attack/2,
-	 hit/2
+	 hit/2,
+	 hurt/2
 ]).
 
 %% gen_server callbacks
@@ -54,6 +55,9 @@ attack(Pid, Target) ->
 
 hit(Pid, Target) ->
     gen_server:call(Pid, {hit, Target}).
+
+hurt(Pid, Attacker) ->
+    gen_server:call(Pid, {hurt, Attacker}).
 
 set_checkpoint(Pid, Value) ->
     gen_server:call(Pid, {set_checkpoint, Value}).
@@ -150,16 +154,25 @@ handle_call({attack, Target}, _From, State = #player_state{zone = Zone}) ->
     browserquest_srv_entity_handler:event(Zone, ?WARRIOR, {action, Action}),
     {reply, ok, State};
 
-handle_call({hit, Target}, _From, State = #player_state{local_cache = {Target, {Id, Armor}}, weapon = Weapon}) ->
+handle_call({hit, Target}, _From, State = #player_state{local_cache = {Target, {Id, _, Armor}}, weapon = Weapon}) ->
     Dmg = browserquest_srv_entity_handler:calculate_dmg(Armor, Weapon),
     browserquest_srv_mob:receive_damage(Target, Dmg),
     {reply, {ok, [?DAMAGE, Id, Armor]}, State};
 
 handle_call({hit, Target}, _From, State = #player_state{weapon = Weapon}) ->
-    {ok, {Id, Armor}} = browserquest_srv_mob:get_armor(Target),
-    Dmg = browserquest_srv_entity_handler:calculate_dmg(Armor, Weapon),
+    {ok, {Id, TargetWeapon, TargetArmor}} = browserquest_srv_mob:get_stats(Target),
+    Dmg = browserquest_srv_entity_handler:calculate_dmg(TargetArmor, Weapon),
     browserquest_srv_mob:receive_damage(Target, Dmg),
-    {reply, {ok, [?DAMAGE, Id, Armor]}, State#player_state{local_cache = {Target, {Id, Armor}}}};
+    {reply, {ok, [?DAMAGE, Id, Dmg]}, State#player_state{local_cache = {Target, {Id, TargetWeapon, TargetArmor}}}};
+
+handle_call({hurt, Attacker}, _From, State = #player_state{armor = Armor, hitpoints = HP, local_cache = {Attacker, {Id, TargetWeapon, _TargetArmor}}}) ->
+    Dmg = browserquest_srv_entity_handler:calculate_dmg(TargetWeapon, Armor),
+    case HP-Dmg of
+	Dead when Dead =< 0 ->
+	    {reply, {ok, []}, State#player_state{hitpoints = 0}}; %%FIXME
+	TotalHP ->
+	    {reply, {ok, [?HEALTH, TotalHP]}, State#player_state{hitpoints = HP}}
+    end;
 
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
@@ -179,6 +192,10 @@ handle_cast({event, From, _, {action, [Initial,?SPAWN|Tl]}}, State = #player_sta
     end,
     lager:debug("Found a new entity"),
     {noreply, State#player_state{actionlist = [[?SPAWN|Tl]|ActionList]}};
+
+handle_cast({event, From, _, {action, [?ATTACK, Attacker]}}, State = #player_state{id = Id, actionlist = ActionList}) ->
+    Action = [?ATTACK, Attacker, Id],
+    {noreply, State#player_state{actionlist = [Action|ActionList]}};
 
 handle_cast({event, _From, _Type, {action, AC}}, 
             State = #player_state{actionlist = ActionList}) ->
