@@ -1,0 +1,4 @@
+
+Backend to BrowserQuest (http://browserquest.mozilla.org/) written in Erlang/OTP.
+
+We make use of Cowboy to connect the BrowserQuest client to our backend.
