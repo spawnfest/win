@@ -1,17 +1,5 @@
 -define(PLAYER_BUCKET, <<"player">>).
 
--record(location, {
-	  x :: integer(),
-	  y :: integer()
-	 }).
-
--record(player, {
-	  last_checkpoint :: #location{},
-	  name :: string(),
-	  id :: integer(),
-	  group :: integer()
-	 }).
-
 % WS messages
 -define(HELLO, 0).
 -define(WELCOME, 1).
@@ -101,3 +89,10 @@
 -define(MORNINGSTAR, 64).
 -define(AXE, 65).
 -define(BLUESWORD, 66).
+
+
+%% Orientations
+-define(UP, 1).
+-define(DOWN, 2).
+-define(LEFT, 3).
+-define(RIGHT, 4).
