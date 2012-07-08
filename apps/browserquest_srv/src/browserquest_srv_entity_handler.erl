@@ -226,6 +226,7 @@ generate_id(InitialValue) when is_list(InitialValue) ->
     erlang:list_to_integer(InitialValue ++ erlang:integer_to_list(random:uniform(1000000))).
 
 calculate_dmg(TargetArmor, SourceWeapon) ->
+    random:seed(erlang:now()),
     Dealt = SourceWeapon * (5+random:uniform(5)),
     Absorbed = TargetArmor * (1+random:uniform(2)),
     case Dealt-Absorbed of

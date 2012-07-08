@@ -2,6 +2,20 @@
 -record(map, {json, attributes}).
 -record(cp, {id, x, y, w, h}).
 -record(mobarea, {id, x, y, w, h, type, nb}).
+-record(player_state, {
+	  id,
+	  name,
+	  armor,
+	  weapon,
+	  hitpoints,
+	  pos_x,
+	  pos_y,
+	  checkpoint,
+	  zone,
+	  actionlist,
+	  target,
+	  local_cache
+	 }).
 
 
 % WS messages
