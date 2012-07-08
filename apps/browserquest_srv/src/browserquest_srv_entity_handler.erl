@@ -223,7 +223,7 @@ make_zone(PosX, PosY) ->
 
 generate_id(InitialValue) when is_list(InitialValue) ->
     random:seed(erlang:now()),
-    InitialValue ++ erlang:integer_to_list(random:uniform(1000000)).
+    erlang:list_to_integer(InitialValue ++ erlang:integer_to_list(random:uniform(1000000))).
 
 calculate_dmg(TargetArmor, SourceWeapon) ->
     Dealt = SourceWeapon * (5+random:uniform(5)),

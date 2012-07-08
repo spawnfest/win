@@ -21,7 +21,9 @@
 	 get_zone/1,
 	 get_surrondings/1,
 	 chat/2,
-	 stop/1
+	 stop/1,
+	 attack/2,
+	 hit/2
 ]).
 
 %% gen_server callbacks
@@ -43,7 +45,9 @@
 	  pos_y,
 	  checkpoint,
 	  zone,
-	  actionlist
+	  actionlist,
+	  target,
+	  local_cache
 	 }).
 
 
@@ -58,6 +62,12 @@ get_status(Pid) ->
 
 move(Pid, X, Y) ->
     gen_server:call(Pid, {move, X, Y}).
+
+attack(Pid, Target) ->
+    gen_server:call(Pid, {attack, Target}).
+
+hit(Pid, Target) ->
+    gen_server:call(Pid, {hit, Target}).
 
 set_checkpoint(Pid, Value) ->
     gen_server:call(Pid, {set_checkpoint, Value}).
@@ -91,6 +101,7 @@ init([Name, Armor, Weapon]) ->
     
     Zone = browserquest_srv_entity_handler:make_zone(PosX, PosY),
 
+    lager:debug("Player zone: ~p", [Zone]),
     {ok, #state{
        id = Id,
        name = Name,
@@ -101,17 +112,19 @@ init([Name, Armor, Weapon]) ->
        hitpoints = Hitpoints,
        checkpoint = 0,
        zone = Zone,
-       actionlist = []
+       actionlist = [],
+       local_cache = []
       }}.
 
 handle_call({get_status}, _From, State = #state{id = Id, name = Name, zone = Zone, pos_x = X, pos_y = Y, hitpoints = HP, armor = Armor, weapon = Weapon}) ->
-    browserquest_srv_entity_handler:register(Zone, ?WARRIOR, {action, [true, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}),
+    browserquest_srv_entity_handler:register(Zone, ?WARRIOR, Id, {action, [true, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}),
     {reply, {ok, [Id, Name, X, Y, HP]}, State};
 
 handle_call({move, X, Y}, _From, State = #state{pos_x = OldX, pos_y = OldY,
                                                 id = Id, zone = Zone}) ->
     case browserquest_srv_map:is_out_of_bounds(X, Y) of
         true ->
+	    lager:debug("Moved to ~p ~p", [X, Y]),
             {reply, {ok, [Id, OldX, OldY]}, State};
         _ ->
             browserquest_srv_entity_handler:event(
@@ -139,6 +152,22 @@ handle_call({chat, Message}, _From, State = #state{id = Id, zone = Zone}) ->
     browserquest_srv_entity_handler:event(Zone, ?WARRIOR, {action, Action}),
     {reply, {ok, Action}, State};
 
+handle_call({attack, Target}, _From, State = #state{zone = Zone, target = Target}) ->
+    Action = [?ATTACK, Target],
+    browserquest_srv_entity_handler:event(Zone, ?WARRIOR, {action, Action}),
+    {reply, ok, State};
+
+handle_call({hit, Target}, _From, State = #state{local_cache = {Target, {Id, Armor}}, weapon = Weapon}) ->
+    Dmg = browserquest_srv_entity_handler:calculate_dmg(Armor, Weapon),
+    browserquest_srv_mob:receive_damage(Target, Dmg),
+    {reply, {ok, [?DAMAGE, Id, Armor]}, State};
+
+handle_call({hit, Target}, _From, State = #state{weapon = Weapon}) ->
+    {ok, {Id, Armor}} = browserquest_srv_mob:get_armor(Target),
+    Dmg = browserquest_srv_entity_handler:calculate_dmg(Armor, Weapon),
+    browserquest_srv_mob:receive_damage(Target, Dmg),
+    {reply, {ok, [?DAMAGE, Id, Armor]}, State#state{local_cache = {Target, {Id, Armor}}}};
+
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
     Reply = ok,
@@ -148,6 +177,7 @@ handle_cast({stop}, State) ->
     {stop, normal, State};
 
 handle_cast({event, From, _, {action, [Initial,?SPAWN|Tl]}}, State = #state{id = Id, pos_x = X, pos_y = Y, name = Name, armor = Armor, weapon = Weapon, actionlist = ActionList}) ->
+    lager:debug("Action received: ~p", [[Initial,?SPAWN|Tl]]),
     case Initial of
 	true ->
 	    gen_server:cast(From, {event, self(), ?WARRIOR, {action, [false, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}});

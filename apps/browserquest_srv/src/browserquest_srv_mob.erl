@@ -12,7 +12,7 @@
 -include("../include/browserquest.hrl").
 
 %% API
--export([start_link/3, receive_damage/1]).
+-export([start_link/3, receive_damage/2, get_armor/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -28,6 +28,7 @@
                 armor,
                 weapon,
                 hate,
+		hate_counter,
                 item,
                 respawn_timout,
                 return_timeout,
@@ -47,40 +48,71 @@ start_link(Type, X, Y) ->
 %%%===================================================================
 %%% Game API
 %%%===================================================================
-receive_damage(Amounth) ->
-    gen_server:cast(?SERVER, {receive_damage, Amounth}).
+receive_damage(Pid, Amount) when is_pid(Pid) ->
+    gen_server:cast(Pid, {receive_damage, Amount});
+receive_damage(Target, Amount) ->
+    {ok, Pid} = browserquest_srv_entity_handler:get_target(Target),
+    receive_damage(Pid, Amount).
+
+get_armor(Pid) when is_pid(Pid) ->
+    lager:debug("Trying to get armor from Pid: ~p", [Pid]),
+    gen_server:call(Pid, {get_armor});
+get_armor(Target) ->
+    {ok, Pid} = browserquest_srv_entity_handler:get_target(Target),
+    get_armor(Pid).
+
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
-init([T, X, Y]) ->
+init([BinType, X, Y]) ->
     Id = browserquest_srv_entity_handler:generate_id("1"),
     Zone = browserquest_srv_entity_handler:make_zone(X, Y),
-    Type = browserquest_srv_util:type_to_internal(T),
+    Type = browserquest_srv_util:type_to_internal(BinType),
     Orientation = random:uniform(4),
     State = do_init(
 	      Type, 
-          #state{id = Id, type = Type,
-            pos_x = X, pos_y = Y,
-            orientation = random:uniform(4)}
+	      #state{id = Id, type = Type,
+		     pos_x = X, pos_y = Y,
+		     orientation = random:uniform(4)}
 	     ),
 
-    browserquest_srv_entity_handler:register(Zone, Type, {action, [false,
-                ?SPAWN, Id, Type, Orientation]}),
+    lager:debug("Mob zone: ~p", [Zone]),
+    browserquest_srv_entity_handler:register(Zone, Type, Id, {action, [false,
+                ?SPAWN, Id, Type, X, Y]}),
     {ok, State}.
 
+
+handle_call({get_armor}, _From, State = #state{id = Id, armor = Armor}) ->
+    {reply, {ok, {Id, Armor}}, State};
 
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
     Reply = ok,
     {reply, Reply, State}.
 
-handle_cast({event, _From, ?WARRIOR, {action, [?MOVE, X, Y]}}, State = #state{range = Range, pos_x = PX, pos_y = PY, hate = Hate}) when Hate =:= [] andalso ((PX-Range < X andalso X < (PX+Range)) orelse ((PY-Range) < Y andalso Y < (PY+Range))) ->
-    %% Hates on for you
-    {reply, ok, State};
+handle_cast({tick}, State = #state{hate = _Hate, hitpoints = HP}) ->
+    case HP of
+	Dead when Dead =< 0 ->
+	    die;
+	_ ->
+	    ok
+    end,
+    {noreply, ok, State};
 
-handle_cast({receive_damage, Amounth}, State) ->
-    {reply, ok, do_receive_damage(Amounth, State)};
+handle_cast({event, From, ?WARRIOR, {action, [?MOVE, Id, X, Y]}}, State = #state{range = Range, pos_x = PX, pos_y = PY, hate = Hate}) when Hate =:= [] andalso ((PX-Range < X andalso X < (PX+Range)) orelse ((PY-Range) < Y andalso Y < (PY+Range))) ->
+    %% Hates on for you
+    {noreply, ok, State#state{hate = [From]}};
+
+handle_cast({event, From, ?WARRIOR, {action, [?MOVE, _Id, _X, _Y]}}, State) ->
+    {noreply, ok, State};
+
+handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Target]}}, State = #state{id = Target}) ->
+    %% I'm gonna KILL you
+    {noreply, ok, State#state{hate = [From]}};
+
+handle_cast({receive_damage, Amount}, State) ->
+    {noreply, ok, do_receive_damage(Amount, State)};
 handle_cast(Msg, State) ->
     browserquest_srv_util:unexpected_cast(?MODULE, Msg, State),
     {noreply, State}.
@@ -255,13 +287,14 @@ do_init(_Type, State) ->
     lager:error("Unknown mob type initialization"),
     State.
 
-do_receive_damage(Amounth, S) ->
-    State = S#state{hitpoints = S#state.hitpoints - Amounth},
-    case State#state.hitpoints =< 0 of
+do_receive_damage(Amount, State = #state{hitpoints = HP}) ->
+    Total = HP - Amount,
+    NewState = State#state{hitpoints = Total},
+    case Total =< 0 of
         true -> %DEATH!
-            State#state{is_dead = true};
+            NewState#state{is_dead = true};
         false ->
-            State
+            NewState
     end.
 
     %hates: function(playerId) {

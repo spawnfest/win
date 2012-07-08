@@ -39,8 +39,8 @@ is_colliding(X, Y) ->
 is_out_of_bounds(X, Y) ->
     gen_server:call(?SERVER, {is_out_of_bounds, X, Y}).
 
-get_random_starting_position() ->
-    gen_server:call(?SERVER, get_random_starting_pos).
+tileid_to_pos(TileId) ->
+    gen_server:call(?SERVER, {tileid_to_pos, TileId}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -54,8 +54,8 @@ init([MapName]) ->
     ZoneWidth = 28,
     ZoneHeight = 12,
 
-    CollisionGrid = 
-        get_collision_grid(Height, Width, get_json_value("collisions", Json)),
+    Grid = get_grid(Height, Width, get_json_value("collisions", Json)),
+    TileToPos = grid_to_tileid_lookup(Grid),
     
     Checkpoints = lists:map(fun get_checkpoint/1,
                             get_json_value("checkpoints", Json)),
@@ -73,7 +73,8 @@ init([MapName]) ->
                 {"zoneWidth", ZoneWidth}, {"zoneHeight", ZoneHeight},
                 {"groupWidth", trunc(Width / ZoneWidth)},
                 {"groupHeight", trunc(Height / ZoneHeight)},
-                {"collisionGrid", CollisionGrid},
+                {"grid", Grid},
+                {"tiletopos", TileToPos},
                 {"startingAreas", StartingAreas},
                 {"checkpoints", Checkpoints},
                 {"mobAreas", MobAreas},
@@ -86,12 +87,13 @@ init([MapName]) ->
 handle_call({get_attribute, Attribute}, _From, Map) ->
     {reply, do_get_attribute(Attribute, Map), Map};
 handle_call({is_colliding, X, Y}, _From, #map{attributes = PL} = Map) ->
-    Grid = proplists:get_value("collisionGrid", PL),
+    Grid = proplists:get_value("grid", PL),
     {reply, do_is_colliding(X, Y, Grid), Map};
 handle_call({is_out_of_bounds, X, Y}, _From, #map{attributes = PL} = Map) ->
     {reply, do_is_out_of_bounds(X, Y, PL), Map};
-handle_call(get_random_starting_pos, _From, #map{attributes = PL} = Map) ->
-    {reply, do_get_random_starting_pos(PL), Map};    
+handle_call({tileid_to_pos, TileId}, _From, #map{attributes = PL} = Map) ->
+    TileToPos = proplists:get_value("tiletopos", PL),
+    {reply, tileid_to_pos(TileId, TileToPos), Map};
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
     Reply = ok,
@@ -125,7 +127,7 @@ do_get_attribute(Attribute, #map{json = Json, attributes = PL}) ->
 get_json_value(Key, Json) ->
     mochijson3_helper:get_path_value([{1, binary:list_to_bin(Key)}], Json).
 
-get_collision_grid(Height, Width, Collisions) ->
+get_grid(Height, Width, Collisions) ->
     Grid = [{Y,X}||Y<-lists:seq(0,Height-1), X<-lists:seq(0,Width-1)],
     GridTiled = lists:zip(Grid, lists:seq(0,length(Grid)-1)),
     GridTree = gb_trees:from_orddict(GridTiled),
@@ -133,17 +135,17 @@ get_collision_grid(Height, Width, Collisions) ->
     gb_trees:map(set_array(CollisionTree), GridTree).
 
 set_array(Collisions) ->
-    fun(_Key, TiledId) ->
-            case gb_trees:lookup(TiledId, Collisions) of
-                none -> 0;
+    fun(_Key, TileId) ->
+            case gb_trees:lookup(TileId, Collisions) of
+                none -> {TileId, 0};
                 _ ->
-                    1
+                    {TileId, 1}
             end
     end.
 
 do_is_colliding(X, Y, Grid) ->    
-    {value, Val} = gb_trees:lookup({X,Y}, Grid),
-    Val == 1.
+    {value, {_TileID, CollisionBit}} = gb_trees:lookup({X,Y}, Grid),
+    CollisionBit == 1.
 
 get_checkpoint(CP) ->
     [Id,X,Y,W,H] = [get_json_value(A, CP) || A <- ["id","x","y","w","h"]],
@@ -154,24 +156,17 @@ get_mobarea(RoamingArea) ->
                        A <- ["id","x","y","width","height","type","nb"]],
     #mobarea{id=Id,x=X,y=Y,w=W,h=H,type=Type,nb=Nb}.
 
-do_get_random_starting_pos(PL) ->
-    StartingAreas = proplists:get_value("startingAreas", PL),
-    random:seed(erlang:now()),
-    Id = random:uniform(length(StartingAreas)),
-    #cp{x = X, y = Y} = lists:keyfind(Id, #cp.id, StartingAreas),
-    F = fun(X1,Y1) -> do_is_out_of_bounds(X1, Y1, PL) end,
-    get_valid(X, Y, false, F).
-
-get_valid(X, Y, true, _) -> {X, Y};
-get_valid(X, Y, _, F) ->
-    Op = fun() -> case random:uniform(2) of 1 -> '+'; _ -> '+' end end,
-    Xn = erlang:(Op())(X,random:uniform(3)),
-    Yn = erlang:(Op())(Y,random:uniform(3)),
-    get_valid(Xn, Yn, F(Xn, Yn), F).
-    
 do_is_out_of_bounds(X, Y, PL) ->
     Height = proplists:get_value("height", PL),
     Width = proplists:get_value("width", PL),
     (X < 1) or (X >= Width) or (Y < 1) or (Y >= Height).    
 
+tileid_to_pos(TileId, TileToPos) ->
+    {value, Pos} = gb_trees:lookup(TileId, TileToPos),
+    Pos.
 
+grid_to_tileid_lookup(Grid) ->
+    SwitchKv = fun({Pos, {TileId, _CollisionBit}}) -> {TileId, Pos} end,
+    gb_trees:from_orddict(lists:map(SwitchKv, gb_trees:to_list(Grid))).
+
+    
