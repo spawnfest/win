@@ -74,7 +74,7 @@ init([BinType, X, Y]) ->
 	      Type, 
 	      #state{id = Id, type = Type,
 		     pos_x = X, pos_y = Y,
-		     orientation = random:uniform(4)}
+		     orientation = Orientation}
 	     ),
 
     lager:debug("Mob zone: ~p", [Zone]),
@@ -89,7 +89,7 @@ handle_call({get_armor}, _From, State = #state{id = Id, armor = Armor}) ->
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
     Reply = ok,
-    {reply, Reply, State}.
+    {reply, ok, State}.
 
 handle_cast({tick}, State = #state{hate = _Hate, hitpoints = HP}) ->
     case HP of
@@ -98,21 +98,21 @@ handle_cast({tick}, State = #state{hate = _Hate, hitpoints = HP}) ->
 	_ ->
 	    ok
     end,
-    {noreply, ok, State};
+    {noreply, State};
 
 handle_cast({event, From, ?WARRIOR, {action, [?MOVE, Id, X, Y]}}, State = #state{range = Range, pos_x = PX, pos_y = PY, hate = Hate}) when Hate =:= [] andalso ((PX-Range < X andalso X < (PX+Range)) orelse ((PY-Range) < Y andalso Y < (PY+Range))) ->
     %% Hates on for you
-    {noreply, ok, State#state{hate = [From]}};
+    {noreply, State#state{hate = [From]}};
 
 handle_cast({event, From, ?WARRIOR, {action, [?MOVE, _Id, _X, _Y]}}, State) ->
     {noreply, ok, State};
 
 handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Target]}}, State = #state{id = Target}) ->
     %% I'm gonna KILL you
-    {noreply, ok, State#state{hate = [From]}};
+    {noreply, State#state{hate = [From]}};
 
 handle_cast({receive_damage, Amount}, State) ->
-    {noreply, ok, do_receive_damage(Amount, State)};
+    {noreply, do_receive_damage(Amount, State)};
 handle_cast(Msg, State) ->
     browserquest_srv_util:unexpected_cast(?MODULE, Msg, State),
     {noreply, State}.
