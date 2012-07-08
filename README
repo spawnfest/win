@@ -1,6 +1,20 @@
-Backend to BrowserQuest (http://browserquest.mozilla.org/) written in Erlang/OTP.
+Backend to BrowserQuest (http://browserquest.mozilla.org/) in Erlang/OTP.
 
-We make use of Cowboy to connect the BrowserQuest client to our backend.
+We make use of Cowboy websocket handlers for communication with
+the BrowserQuest client. No modifications were done to the BrowserQuest Client.
+The goal is to build a more scalable backend for websocket-based games.
+
+Features:
+    * Player login and movement works. Map collision detection and
+      player start position generation.
+    * Basic monster spawning and fighting.
+    * Different architecture than the original nodeJS backend; we hope to add
+      more scalability features later on. The architecture is event-based and
+      players, monsters and items are mapped as Erlang processes.
+
+Future:
+    * Support item drops and static NPCs.
+    * Proper supervisor tree.
 
 Installation:
 Backend:
