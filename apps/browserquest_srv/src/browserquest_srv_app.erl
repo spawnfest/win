@@ -37,6 +37,7 @@ start(_StartType, _StartArgs) ->
         cowboy_tcp_transport, [{port, ListeningPort}],
         cowboy_http_protocol, [{dispatch, Dispatch}]
     ),
+
     browserquest_srv_sup:start_link().
 
 stop(_State) ->

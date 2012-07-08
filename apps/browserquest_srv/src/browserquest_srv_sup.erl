@@ -64,18 +64,19 @@ init([]) ->
         {browserquest_srv_map,
          {browserquest_srv_map, start_link, [MapFile]},
          Restart, Shutdown, Type, [browserquest_srv_map]},
-    PlayerHandler = 
-        {browserquest_srv_player_handler,
-         {browserquest_srv_player_handler, start_link, []},
-         Restart, Shutdown, Type, [browserquest_srv_player_handler]},
 
     MobSup = 
         {browserquest_srv_mob_sup,
          {browserquest_srv_mob_sup, start_link, []},
          Restart, Shutdown, Type, [browserquest_srv_mob_sup]},
     
+    EntityHandler = 
+        {browserquest_srv_entity_handler,
+         {browserquest_srv_entity_handler, start_link, []},
+         Restart, Shutdown, Type, [browserquest_srv_entity_handler]},
     
-    {ok, {SupFlags, [Map, MobSup, PlayerHandler]}}.
+    
+    {ok, {SupFlags, [Map, MobSup, EntityHandler]}}.
 
 %%%===================================================================
 %%% Internal functions
