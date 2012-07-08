@@ -66,8 +66,6 @@ websocket_init(tcp, Req, []) ->
     {ok, Req2, #state{tick_time = TickTime}}.  
 
 websocket_handle({text, Msg}, Req, State) ->  
-    lager:debug("Received: ~p", [Msg]),  
-
     Args = mochijson3:decode(Msg),
     {Type, Reply, NewState} = parse_action(Args, State),
     
@@ -92,21 +90,28 @@ websocket_info(<<"Send gogo">>, Req, State) ->
     lager:debug("Sending 'go' message to client"),
     {reply, {text, <<"go">>}, Req, State};
 
-websocket_info(<<"tick">>, Req, State) ->
-    lager:debug("Got tick"),
+websocket_info(<<"tick">>, Req, State = #state{player = undefined}) ->
+    {ok, Req, State};
+websocket_info(<<"tick">>, Req, State = #state{player = Player}) ->
+    case browserquest_srv_player:get_surrondings(Player) of
+	[] ->
+	    ok;
+	ActionList ->
+	    self() ! {json, ActionList}
+    end,
     {ok, Req, State};
 
 websocket_info({json, Message}, Req, State) ->
     Json = mochijson3:encode(Message),
-    lager:debug("Sending message: ~p", [Json]),
     {reply, {text, Json}, Req, State};
   
 websocket_info(Msg, Req, State) ->
     lager:debug("Got unknown message: ~p", [Msg]),
     {ok, Req, State}.
 
-websocket_terminate(_Reason, _Req, _State) ->      
+websocket_terminate(_Reason, _Req, #state{player = Player}) ->      
     lager:debug("Connection closed"),
+    browserquest_srv_player:stop(Player),
     ok.
 
 %%%===================================================================
@@ -123,8 +128,9 @@ parse_action([?MOVE, X, Y], State = #state{player = Player}) ->
     {ok, Status} = browserquest_srv_player:move(Player, X, Y),
     {json, [?MOVE|Status], State};
 
-parse_action([?CHAT, _Message], State = #state{player = _Player}) ->
-    {ok, [], State};
+parse_action([?CHAT, Message], State = #state{player = Player}) ->
+    {ok, Return} = browserquest_srv_player:chat(Player, Message),
+    {json, Return, State};
 
 parse_action([?TELEPORT, X, Y], State = #state{player = Player}) ->
     {ok, Status} = browserquest_srv_player:move(Player, X, Y),

@@ -9,6 +9,8 @@
 
 -behaviour(gen_server).
 
+-include("../include/browserquest.hrl").
+
 %% API
 -export([
 	 start_link/3,
@@ -16,7 +18,10 @@
 	 move/3,
 	 set_checkpoint/2,
 	 update_zone/1,
-	 get_zone/1
+	 get_zone/1,
+	 get_surrondings/1,
+	 chat/2,
+	 stop/1
 ]).
 
 %% gen_server callbacks
@@ -25,11 +30,10 @@
 
 -compile(export_all).
 
--define(SERVER, ?MODULE). 
 -define(CALC_HP(ArmorLevel), 80 + ((ArmorLevel - 1) * 30)).
 -define(APP, browserquest_srv).
 
--record(player, {
+-record(state, {
 	  id,
 	  name,
 	  armor,
@@ -38,13 +42,8 @@
 	  pos_x,
 	  pos_y,
 	  checkpoint,
-	  zone
-	 }).
-
--record(state, {
-	  riak :: pid(), 
-	  player :: #player{},
-	  last_view
+	  zone,
+	  actionlist
 	 }).
 
 
@@ -72,6 +71,12 @@ get_zone(Pid) ->
 get_surrondings(Pid) ->
     gen_server:call(Pid, {get_surrondings}).
 
+chat(Pid, Message) ->
+    gen_server:call(Pid, {chat, Message}).
+
+stop(Pid) ->
+    gen_server:cast(Pid, {stop}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -81,54 +86,69 @@ init([Name, Armor, Weapon]) ->
     PosX = 10,
     PosY = 10,
     
-    {ok, RiakIP} = application:get_env(?APP, riak_ip),
-    {ok, RiakPort} = application:get_env(?APP, riak_port),
-
-    {ok, RiakPid} = riakc_pb_socket:start_link(RiakIP, RiakPort), 
+    Zone = make_zone(PosX, PosY),
 
     {ok, #state{
-       riak = RiakPid,
-       player = #player{
-	 id = Id,
-	 name = Name,
-	 armor = Armor,
-	 weapon = Weapon,
-	 pos_x = PosX,
-	 pos_y = PosY,
-	 hitpoints = Hitpoints,
-	 checkpoint = 0,
-	 zone = make_zone(PosX, PosY)
-	}
+       id = Id,
+       name = Name,
+       armor = Armor,
+       weapon = Weapon,
+       pos_x = PosX,
+       pos_y = PosY,
+       hitpoints = Hitpoints,
+       checkpoint = 0,
+       zone = Zone,
+       actionlist = []
       }}.
 
-handle_call({get_status}, _From, State = #state{riak = Riak, player = #player{id = Id, name = Name, zone = Zone, pos_x = X, pos_y = Y, hitpoints = HP}}) ->
-    add_action(Riak, Zone, Id, move, [X, Y]),
+handle_call({get_status}, _From, State = #state{id = Id, name = Name, zone = Zone, pos_x = X, pos_y = Y, hitpoints = HP, armor = Armor, weapon = Weapon}) ->
+    browserquest_srv_player_handler:register(Zone, {action, [true, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}),
     {reply, {ok, [Id, Name, X, Y, HP]}, State};
 
-handle_call({move, X, Y}, _From, State = #state{riak = Riak, player = Player}) ->
-    NewState = State#state{player = Player#player{pos_x = X, pos_y = Y}},
-    add_action(Riak, Player#player.zone, Player#player.id, move, [X, Y]),
-    {reply, {ok, [Player#player.id, X, Y]}, NewState};
+handle_call({move, X, Y}, _From, State = #state{id = Id, zone = Zone}) ->
+    browserquest_srv_player_handler:event(Zone, {action, [?MOVE, Id, X, Y]}),
+    {reply, {ok, [Id, X, Y]}, State#state{pos_x = X, pos_y = Y}};
 
-handle_call({set_checkpoint, Value}, _From, State = #state{player = Player}) ->
-    {reply, ok, State#state{player = Player#player{checkpoint = Value}}};
+handle_call({set_checkpoint, Value}, _From, State) ->
+    {reply, ok, State#state{checkpoint = Value}};
 
-handle_call({update_zone}, _From, State = #state{player = Player}) ->
+handle_call({update_zone}, _From, State = #state{zone = OldZone, pos_x = X, pos_y = Y}) ->
     %% Delete old zone and insert the new one
-    Zone = make_zone(Player#player.pos_x, Player#player.pos_y),
-    move_to_zone(Zone, State),
-    {reply, ok, State#state{player = Player#player{zone = Zone}}};
+    NewZone = make_zone(X, Y),
+    browserquest_srv_player_handler:move_zone(OldZone, NewZone),
+    {reply, ok, State#state{zone = NewZone}};
 
-handle_call({get_zone}, _From, State = #state{player = Player}) ->
-    {reply, {ok, Player#player.zone}, State};
+handle_call({get_zone}, _From, State = #state{zone = Zone}) ->
+    {reply, {ok, Zone}, State};
 
-handle_call({get_surrondings}, _From, State) ->
-    {reply, ok, State};
+handle_call({get_surrondings}, _From, State = #state{actionlist = ActionList}) ->
+    {reply, ActionList, State#state{actionlist = []}};
+
+handle_call({chat, Message}, _From, State = #state{id = Id, zone = Zone}) ->
+    Action = [?CHAT, Id, Message],
+    browserquest_srv_player_handler:event(Zone, {action, Action}),
+    {reply, {ok, Action}, State};
 
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
     Reply = ok,
     {reply, Reply, State}.
+
+handle_cast({stop}, State) ->
+    {stop, normal, State};
+
+handle_cast({event, From, {action, [Initial,?SPAWN|Tl]}}, State = #state{id = Id, pos_x = X, pos_y = Y, name = Name, armor = Armor, weapon = Weapon, actionlist = ActionList}) ->
+    case Initial of
+	true ->
+	    gen_server:cast(From, {event, self(), {action, [false, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}});
+	_ ->
+	    ok
+    end,
+    lager:debug("Found a new entity"),
+    {noreply, State#state{actionlist = [[?SPAWN|Tl]|ActionList]}};
+
+handle_cast({event, _From, {action, AC}}, State = #state{actionlist = ActionList}) ->
+    {noreply, State#state{actionlist = [AC|ActionList]}};
 
 handle_cast(Msg, State) ->
     browserquest_srv_util:unexpected_cast(?MODULE, Msg, State),
@@ -138,7 +158,8 @@ handle_info(Info, State) ->
     browserquest_srv_util:unexpected_info(?MODULE, Info, State),
     {noreply, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{zone = Zone}) ->
+    browserquest_srv_player_handler:unregister(Zone),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -151,44 +172,10 @@ generate_id() ->
     random:seed(erlang:now()),
     random:uniform(1000000).
 
-add_action(Riak, Zone, Id, Action, Args) ->
-    store_in_riak(Riak, Zone, Id, [Action, Args]).
-
-move_to_zone(NewZone, #state{riak = Riak, player = Player}) ->
-    lager:debug("Moving out of zone"),
-    ok = delete_in_riak(Riak, Player#player.zone, Player#player.id), 
-    add_action(Riak, NewZone, Player#player.id, move, [Player#player.pos_x, Player#player.pos_y]).
-    
 make_zone(PosX, PosY) ->
     Zone = erlang:trunc(PosX/(PosX rem 28))*erlang:trunc(PosY/(PosY rem 11)),
     ZoneString = erlang:integer_to_list(Zone),
     ensure_bin("ZONE"++ZoneString).
-
-store_in_riak(Riak, Zone, Id, Term) ->
-    Object = riakc_obj:new(Zone, ensure_bin(Id), <<>>),
-    Object2 = encode_term(Object, Term),
-    riakc_pb_socket:put(Riak, Object2).
-
-delete_in_riak(Riak, Zone, Id) ->
-    riakc_pb_socket:delete(Riak, Zone, ensure_bin(Id)).
-
-decode_term(Object) ->
-  case riakc_obj:get_content_type(Object) of
-    <<"application/x-erlang-term">> ->
-      try
-        {ok, binary_to_term(riakc_obj:get_value(Object))}
-      catch
-        _:Reason ->
-          {error, Reason}
-      end;
-    Ctype ->
-      {error, {unknown_ctype, Ctype}}
-  end.
-
-encode_term(Object, Term) ->
-  riakc_obj:update_value(Object, term_to_binary(Term, [compressed]),
-  <<"application/x-erlang-term">>).
-
 
 ensure_bin(Int) when is_integer(Int) ->
     ensure_bin(erlang:integer_to_list(Int));
