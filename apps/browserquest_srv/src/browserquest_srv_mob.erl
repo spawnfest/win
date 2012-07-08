@@ -24,7 +24,7 @@
                 type,
                 hitpoints,
                 pos_x, 
-		pos_y,
+                pos_y,
                 armor,
                 weapon,
                 hate,
@@ -34,7 +34,7 @@
                 is_dead = false,
                 orientation, %TODO initalize in init
                 attackers = [],
-		range,
+                range,
                 target
             }).
 
@@ -59,7 +59,9 @@ init([T, X, Y]) ->
     Type = browserquest_srv_util:type_to_internal(T),
     State = do_init(
 	      Type, 
-	      #state{id = Id, type = Type, pos_x = X, pos_y = Y}
+          #state{id = Id, type = Type,
+            pos_x = X, pos_y = Y,
+            orientation = random:uniform(4)}
 	     ),
 
     browserquest_srv_entity_handler:register(Zone, Type, {action, [false, ?SPAWN, Id, Type, ?DOWN]}),
