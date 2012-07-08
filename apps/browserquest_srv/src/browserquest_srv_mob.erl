@@ -40,7 +40,7 @@
 %%% API
 %%%===================================================================
 start_link(Id, Type, X, Y) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [Id, Type, X, Y], []).
+    gen_server:start_link(?MODULE, [Id, Type, X, Y], []).
 
 %%%===================================================================
 %%% Game API

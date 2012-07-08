@@ -63,6 +63,9 @@ init([MapName]) ->
     %% Change this to a subset of checkpoints? Mysterious .s field
     %% in cp in map.js.
     StartingAreas = Checkpoints,
+
+    MobAreas = lists:map(fun get_mobarea/1,
+                         get_json_value("roamingAreas", Json)),
                             
     PropList = [{"width", Width}, {"height", Height},
                 {"zoneWidth", ZoneWidth}, {"zoneHeight", ZoneHeight},
@@ -70,7 +73,8 @@ init([MapName]) ->
                 {"groupHeight", trunc(Height / ZoneHeight)},
                 {"collisionGrid", CollisionGrid},
                 {"startingAreas", StartingAreas},
-                {"checkpoints", Checkpoints}
+                {"checkpoints", Checkpoints},
+                {"mobAreas", MobAreas}
                ],
     
     Map = #map{json = Json, attributes = PropList},
@@ -140,6 +144,11 @@ do_is_colliding(X, Y, Grid) ->
 get_checkpoint(CP) ->
     [Id,X,Y,W,H] = [get_json_value(A, CP) || A <- ["id","x","y","w","h"]],
     #cp{id=Id,x=X,y=Y,w=W,h=H}.
+
+get_mobarea(RoamingArea) ->
+    [Id,X,Y,W,H,Type,Nb] = [get_json_value(A, RoamingArea) ||
+                       A <- ["id","x","y","width","height","type","nb"]],
+    #mobarea{id=Id,x=X,y=Y,w=W,h=H,type=Type,nb=Nb}.
 
 do_get_random_starting_pos(PL) ->
     StartingAreas = proplists:get_value("startingAreas", PL),

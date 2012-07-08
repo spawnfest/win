@@ -68,8 +68,14 @@ init([]) ->
         {browserquest_srv_player_handler,
          {browserquest_srv_player_handler, start_link, []},
          Restart, Shutdown, Type, [browserquest_srv_player_handler]},
+
+    MobSup = 
+        {browserquest_srv_mob_sup,
+         {browserquest_srv_mob_sup, start_link, []},
+         Restart, Shutdown, Type, [browserquest_srv_mob_sup]},
     
-    {ok, {SupFlags, [Map, PlayerHandler]}}.
+    
+    {ok, {SupFlags, [Map, MobSup, PlayerHandler]}}.
 
 %%%===================================================================
 %%% Internal functions

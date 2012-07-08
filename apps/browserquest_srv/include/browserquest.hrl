@@ -1,6 +1,7 @@
 -define(PLAYER_BUCKET, <<"player">>).
 -record(map, {json, attributes}).
 -record(cp, {id, x, y, w, h}).
+-record(mobarea, {id, x, y, w, h, type, nb}).
 
 
 % WS messages
