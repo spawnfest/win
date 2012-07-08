@@ -14,7 +14,7 @@
 -export([
 	 start_link/0,
 	 register/3,
-	 register_static/2,
+	 register_static/3,
 	 unregister/1,
 	 event/3,
 	 move_zone/2,
@@ -51,9 +51,10 @@ register(Zone, Type, SpawnInfo) ->
     gen_server:call(?MODULE, {register, Pid, Zone}),
     event(Zone, Type, SpawnInfo).
 
-register_static(Zone, SpawnInfo) ->
+register_static(Zone, Type, SpawnInfo) ->
     Pid = self(),
-    gen_server:call(?MODULE, {register, {static, Pid}, Zone}).
+    gen_server:call(?MODULE, {register, {static, Pid}, Zone}),
+    event(Zone, Type, SpawnInfo).
 
 unregister(Zone) ->
     Pid = self(),
