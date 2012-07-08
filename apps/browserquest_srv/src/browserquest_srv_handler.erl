@@ -138,6 +138,12 @@ parse_action([?HIT, Target], State = #state{player = Player}) ->
     {ok, Return} = browserquest_srv_player:hit(Player, Target),
     {json, Return, State};
 
+parse_action([?DAMAGE, Target], State = #state{player = Player}) ->
+    {ok, [], State};
+
+parse_action([?AGGRO, Target], State = #state{player = Player}) ->
+    {ok, [], State};
+
 parse_action([?CHAT, Message], State = #state{player = Player}) ->
     {ok, Return} = browserquest_srv_player:chat(Player, Message),
     {json, Return, State};

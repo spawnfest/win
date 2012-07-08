@@ -135,10 +135,11 @@ handle_call({move, X, Y}, _From, State = #state{pos_x = OldX, pos_y = OldY,
 handle_call({set_checkpoint, Value}, _From, State) ->
     {reply, ok, State#state{checkpoint = Value}};
 
-handle_call({update_zone}, _From, State = #state{zone = OldZone, pos_x = X, pos_y = Y}) ->
+handle_call({update_zone}, _From, State = #state{zone = OldZone, id = Id, name = Name, armor = Armor, weapon = Weapon, pos_x = X, pos_y = Y}) ->
     %% Delete old zone and insert the new one
     NewZone = browserquest_srv_entity_handler:make_zone(X, Y),
-    browserquest_srv_entity_handler:move_zone(OldZone, NewZone),
+    browserquest_srv_entity_handler:unregister(OldZone),
+    browserquest_srv_entity_handler:register(NewZone, ?WARRIOR, Id, {action, [?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}),
     {reply, ok, State#state{zone = NewZone}};
 
 handle_call({get_zone}, _From, State = #state{zone = Zone}) ->
@@ -188,6 +189,7 @@ handle_cast({event, From, _, {action, [Initial,?SPAWN|Tl]}}, State = #state{id =
     {noreply, State#state{actionlist = [[?SPAWN|Tl]|ActionList]}};
 
 handle_cast({event, _From, _Type, {action, AC}}, State = #state{actionlist = ActionList}) ->
+    lager:debug("Got event: ~p", [AC]),
     {noreply, State#state{actionlist = [AC|ActionList]}};
 
 handle_cast(Msg, State) ->
