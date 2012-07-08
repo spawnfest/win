@@ -1,7 +1,8 @@
 Backend to BrowserQuest (http://browserquest.mozilla.org/) in Erlang/OTP.
 
 We make use of Cowboy websocket handlers for communication with
-the BrowserQuest client. No modifications were done to the BrowserQuest Client.
+the BrowserQuest client. No modifications were done to the BrowserQuest Client
+except for ip configuration.
 The goal is to build a more scalable backend for websocket-based games.
 
 Features:
@@ -30,3 +31,5 @@ Client:
 1. git clone git://github.com/sedrik/BrowserQuest.git
 3. Launch backend.
 4. Point browser to client/index.html
+
+The original BrowserQuest repo is at https://github.com/mozilla/BrowserQuest
