@@ -88,7 +88,6 @@ handle_call({get_armor}, _From, State = #state{id = Id, armor = Armor}) ->
 
 handle_call(Request, From, State) ->
     browserquest_srv_util:unexpected_call(?MODULE, Request, From, State),
-    Reply = ok,
     {reply, ok, State}.
 
 handle_cast({tick}, State = #state{hate = _Hate, hitpoints = HP}) ->
