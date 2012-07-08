@@ -105,6 +105,7 @@ websocket_info(<<"tick">>, Req, State = #state{player = Player}) ->
 
 websocket_info({json, Message}, Req, State) ->
     Json = mochijson3:encode(Message),
+    lager:debug("Sending json: ~p", [Json]),
     {reply, {text, Json}, Req, State};
   
 websocket_info(Msg, Req, State) ->
@@ -136,10 +137,15 @@ parse_action([?ATTACK, Target], State = #state{player = Player}) ->
 
 parse_action([?HIT, Target], State = #state{player = Player}) ->
     {ok, Return} = browserquest_srv_player:hit(Player, Target),
+
     {json, Return, State};
 
 parse_action([?DAMAGE, Target], State = #state{player = Player}) ->
     {ok, [], State};
+
+parse_action([?HURT, Attacker], State = #state{player = Player}) ->
+    {ok, Status} = browserquest_srv_player:hurt(Player, Attacker),
+    {json, Status, State};
 
 parse_action([?AGGRO, Target], State = #state{player = Player}) ->
     {ok, [], State};
