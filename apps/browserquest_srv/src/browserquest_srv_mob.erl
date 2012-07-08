@@ -98,17 +98,21 @@ handle_cast({tick}, State = #state{hate = _Hate, hitpoints = HP}) ->
     end,
     {noreply, State};
 
-handle_cast({event, From, ?WARRIOR, {action, [?MOVE, _Id, ?WARRIOR, X, Y, _Name, _Orient, _Armor, _Weapon]}}, State = #state{range = Range, pos_x = PX, pos_y = PY, hate = Hate}) when Hate =:= [] andalso ((PX-Range < X andalso X < (PX+Range)) orelse ((PY-Range) < Y andalso Y < (PY+Range))) ->
+handle_cast({event, From, ?WARRIOR,
+             {action, [?MOVE, _Id, ?WARRIOR, X, Y, _Name, _Orient, _Armor, _Weapon]}},
+            State = #state{range = Range, pos_x = PX, pos_y = PY, hate = Hate}) 
+  when Hate =:= [] andalso ((PX-Range < X andalso X < (PX+Range))
+                            orelse ((PY-Range) < Y andalso Y < (PY+Range))) ->
     %% Hates on for you
     {noreply, State#state{hate = [From]}};
 
-handle_cast({event, From, ?WARRIOR, {action, [?MOVE, _Id, ?WARRIOR, X, Y, _Name,
+handle_cast({event, _From, ?WARRIOR, {action, [?MOVE, _Id, ?WARRIOR, _X, _Y, _Name,
         _Orient, _Armor, _Weapon]}}, State) ->
     %% Hates on for you
     lager:debug("I'm gonna get ya!"),
     {noreply, State};
 
-handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Id]}}, State) ->
+handle_cast({event, _From, ?WARRIOR, {action, [?ATTACK, Id]}}, State) ->
     %% Hates on for you
     lager:debug("RETALIATE!", [State#state.id, Id]),
     browserquest_srv_entity_handler:event(State#state.zone, State#state.type,
@@ -116,11 +120,15 @@ handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Id]}}, State) ->
     {noreply, State};
 
 %% A hero have spawned in our zone
-handle_cast({event, From, ?WARRIOR, {action, [_, ?SPAWN, _Id, ?WARRIOR, _X, _Y, _Name, _Orient, _Armor, _Weapon]}}, State = #state{id = Id, type = Type, pos_x = X, pos_y = Y}) ->
+handle_cast({event, From, ?WARRIOR, 
+             {action, [_, ?SPAWN, _Id, ?WARRIOR, _X, _Y, _Name, _Orient, _Armor, _Weapon]}}, 
+            State = #state{id = Id, type = Type, pos_x = X, pos_y = Y}) ->
     gen_server:cast(From, {event, self(), Id, {action, [false, ?SPAWN, Id, Type, X, Y]}}),
     {noreply, State};
 
-handle_cast({event, From, ?WARRIOR, {action, [?ATTACK, Target]}}, State = #state{zone = Zone, type = Type, id = Id}) ->
+handle_cast({event, From, ?WARRIOR, 
+             {action, [?ATTACK, Target]}}, 
+            State = #state{zone = Zone, type = Type, id = Id}) ->
     case erlang:integer_to_list(Id) of
 	Target ->
 	    %% I'm gonna KILL you
@@ -179,7 +187,7 @@ drop_item(Item, X, Y) ->
 %% Calculate the item dropped. The Item list needs to be sorted in ascending
 %% order for it to work properly.
 item([], _) -> undefined;
-item([{Item, Chance} | Items], Rand) when Rand =< Chance ->
+item([{Item, Chance} | _Items], Rand) when Rand =< Chance ->
         Item;
 item([_ | Items], Rand) ->
     item(Items, Rand).

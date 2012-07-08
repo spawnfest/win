@@ -27,7 +27,6 @@ Backend:
 
 Client:
 
-1. git clone git://github.com/mozilla/BrowserQuest.git
-2. Edit config files in client/config to use 127.0.0.1 and port 8000
+1. git clone git://github.com/sedrik/BrowserQuest.git
 3. Launch backend.
 4. Point browser to client/index.html

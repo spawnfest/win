@@ -103,12 +103,18 @@ init([Name, Armor, Weapon]) ->
        local_cache = []
       }}.
 
-handle_call({get_status}, _From, State = #player_state{id = Id, name = Name, zone = Zone, pos_x = X, pos_y = Y, hitpoints = HP, armor = Armor, weapon = Weapon}) ->
-    browserquest_srv_entity_handler:register(Zone, ?WARRIOR, Id, {action, [true, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}),
+handle_call({get_status}, _From, 
+            State = #player_state{id = Id, name = Name, zone = Zone,
+                                  pos_x = X, pos_y = Y, hitpoints = HP,
+                                  armor = Armor, weapon = Weapon}) ->
+    Action = {action, [true, ?SPAWN, Id, 
+                       ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]},
+    browserquest_srv_entity_handler:register(Zone, ?WARRIOR, Id, Action),
     {reply, {ok, [Id, Name, X, Y, HP]}, State};
 
-handle_call({move, X, Y}, _From, State = #player_state{pos_x = OldX, pos_y = OldY,
-                                                id = Id, zone = Zone}) ->
+handle_call({move, X, Y}, _From, 
+            State = #player_state{pos_x = OldX, pos_y = OldY,
+                                  id = Id, zone = Zone}) ->
     case browserquest_srv_map:is_out_of_bounds(X, Y) of
         true ->
 	    lager:debug("Moved to ~p ~p", [X, Y]),
@@ -122,17 +128,23 @@ handle_call({move, X, Y}, _From, State = #player_state{pos_x = OldX, pos_y = Old
 handle_call({set_checkpoint, Value}, _From, State) ->
     {reply, ok, State#player_state{checkpoint = Value}};
 
-handle_call({update_zone}, _From, State = #player_state{zone = OldZone, id = Id, name = Name, armor = Armor, weapon = Weapon, pos_x = X, pos_y = Y}) ->
+handle_call({update_zone}, _From, 
+            State = #player_state{zone = OldZone, id = Id, name = Name, 
+                                  armor = Armor, weapon = Weapon, 
+                                  pos_x = X, pos_y = Y}) ->
     %% Delete old zone and insert the new one
     NewZone = browserquest_srv_entity_handler:make_zone(X, Y),
     browserquest_srv_entity_handler:unregister(OldZone),
-    browserquest_srv_entity_handler:register(NewZone, ?WARRIOR, Id, {action, [true, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}),
+    Action = {action, [true, ?SPAWN, Id, 
+                       ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]},
+    browserquest_srv_entity_handler:register(NewZone, ?WARRIOR, Id, Action),
     {reply, ok, State#player_state{zone = NewZone}};
 
 handle_call({get_zone}, _From, State = #player_state{zone = Zone}) ->
     {reply, {ok, Zone}, State};
 
-handle_call({get_surrondings}, _From, State = #player_state{actionlist = ActionList}) ->
+handle_call({get_surrondings}, _From, 
+            State = #player_state{actionlist = ActionList}) ->
     {reply, ActionList, State#player_state{actionlist = []}};
 
 handle_call({chat, Message}, _From, State = #player_state{id = Id, zone = Zone}) ->
@@ -152,19 +164,27 @@ handle_call({attack, Target}, _From, State = #player_state{zone = Zone}) ->
     browserquest_srv_entity_handler:event(Zone, ?WARRIOR, {action, Action}),
     {reply, ok, State};
 
-handle_call({hit, Target}, _From, State = #player_state{local_cache = {Target, {Id, _, Armor}}, weapon = Weapon}) ->
-    Dmg = browserquest_srv_entity_handler:calculate_dmg(get_armor_lvl(Armor), get_weapon_lvl(Weapon)),
+handle_call({hit, Target}, _From, 
+            State = #player_state{local_cache = {Target, {Id, _, Armor}},
+                                  weapon = Weapon}) ->
+    Dmg = browserquest_srv_entity_handler:calculate_dmg(
+            get_armor_lvl(Armor), get_weapon_lvl(Weapon)),
     browserquest_srv_mob:receive_damage(Target, Dmg),
     {reply, {ok, [?DAMAGE, Id, Dmg]}, State};
 
 handle_call({hit, Target}, _From, State = #player_state{weapon = Weapon}) ->
     {ok, {Id, TargetWeapon, TargetArmor}} = browserquest_srv_mob:get_stats(Target),
-    Dmg = browserquest_srv_entity_handler:calculate_dmg(get_armor_lvl(TargetArmor), get_weapon_lvl(Weapon)),
+    Dmg = browserquest_srv_entity_handler:calculate_dmg(
+            get_armor_lvl(TargetArmor), get_weapon_lvl(Weapon)),
     browserquest_srv_mob:receive_damage(Target, Dmg),
-    {reply, {ok, [?DAMAGE, Id, Dmg]}, State#player_state{local_cache = {Target, {Id, TargetWeapon, TargetArmor}}}};
+    {reply, {ok, [?DAMAGE, Id, Dmg]}, 
+     State#player_state{local_cache = {Target, {Id, TargetWeapon, TargetArmor}}}};
    
-handle_call({hurt, Attacker}, _From, State = #player_state{armor = Armor, hitpoints = HP, local_cache = {_Target, {Attacker, TargetWeapon, _}}}) ->
-    Dmg = browserquest_srv_entity_handler:calculate_dmg(get_weapon_lvl(TargetWeapon), get_armor_lvl(Armor)),
+handle_call({hurt, Attacker}, _From, 
+            State = #player_state{armor = Armor, hitpoints = HP, 
+                                  local_cache = {_Target, {Attacker, TargetWeapon, _}}}) ->
+    Dmg = browserquest_srv_entity_handler:calculate_dmg(
+            get_weapon_lvl(TargetWeapon), get_armor_lvl(Armor)),
     lager:debug("Received ~p damage. Have totally ~p", [Dmg, HP]),
     case HP-Dmg of
 	Dead when Dead =< 0 ->
@@ -173,9 +193,11 @@ handle_call({hurt, Attacker}, _From, State = #player_state{armor = Armor, hitpoi
 	    {reply, {ok, [?HEALTH, TotalHP]}, State#player_state{hitpoints = TotalHP}}
     end;
 
-handle_call({hurt, Attacker}, _From, State = #player_state{armor = Armor, hitpoints = HP}) ->
+handle_call({hurt, Attacker}, _From, 
+            State = #player_state{armor = Armor, hitpoints = HP}) ->
     {ok, {Id, TargetWeapon, TargetArmor}} = browserquest_srv_mob:get_stats(Attacker),
-    Dmg = browserquest_srv_entity_handler:calculate_dmg(get_weapon_lvl(TargetWeapon), get_armor_lvl(Armor)),
+    Dmg = browserquest_srv_entity_handler:calculate_dmg(
+            get_weapon_lvl(TargetWeapon), get_armor_lvl(Armor)),
     lager:debug("Received ~p damage. Have totally ~p", [Dmg, HP]),
     case HP-Dmg of
 	Dead when Dead =< 0 ->
@@ -192,18 +214,25 @@ handle_call(Request, From, State) ->
 handle_cast({stop}, State) ->
     {stop, normal, State};
 
-handle_cast({event, From, _, {action, [Initial,?SPAWN|Tl]}}, State = #player_state{id = Id, pos_x = X, pos_y = Y, name = Name, armor = Armor, weapon = Weapon, actionlist = ActionList}) ->
+handle_cast({event, From, _, 
+             {action, [Initial,?SPAWN|Tl]}}, 
+            State = #player_state{id = Id, pos_x = X, pos_y = Y, name = Name,
+                                  armor = Armor, weapon = Weapon, actionlist = ActionList}) ->
     lager:debug("Action received: ~p", [[Initial,?SPAWN|Tl]]),
     case Initial of
 	true ->
-	    gen_server:cast(From, {event, self(), ?WARRIOR, {action, [false, ?SPAWN, Id, ?WARRIOR, X, Y, Name, ?DOWN, Armor, Weapon]}});
+	    gen_server:cast(From, {event, self(), ?WARRIOR, 
+                                   {action, [false, ?SPAWN, Id, ?WARRIOR, X, Y, 
+                                             Name, ?DOWN, Armor, Weapon]}});
 	_ ->
 	    ok
     end,
     lager:debug("Found a new entity"),
     {noreply, State#player_state{actionlist = [[?SPAWN|Tl]|ActionList]}};
 
-handle_cast({event, From, _, {action, [?ATTACK, Attacker]}}, State = #player_state{id = Id, actionlist = ActionList}) ->
+handle_cast({event, _From, _, 
+             {action, [?ATTACK, Attacker]}}, 
+            State = #player_state{id = Id, actionlist = ActionList}) ->
     Action = [?ATTACK, Attacker, Id],
     {noreply, State#player_state{actionlist = [Action|ActionList]}};
 
