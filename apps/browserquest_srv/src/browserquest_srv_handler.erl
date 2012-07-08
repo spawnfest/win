@@ -92,11 +92,13 @@ websocket_info(<<"Send gogo">>, Req, State) ->
 
 websocket_info(<<"tick">>, Req, State = #state{player = undefined}) ->
     {ok, Req, State};
+
 websocket_info(<<"tick">>, Req, State = #state{player = Player}) ->
     case browserquest_srv_player:get_surrondings(Player) of
 	[] ->
 	    ok;
 	ActionList ->
+	    lager:debug("Sending actionlist: ~p", [ActionList]),
 	    self() ! {json, ActionList}
     end,
     {ok, Req, State};
@@ -125,7 +127,16 @@ parse_action([?HELLO, Name, Armor, Weapon], State) ->
 
 parse_action([?MOVE, X, Y], State = #state{player = Player}) ->
     {ok, Status} = browserquest_srv_player:move(Player, X, Y),
+    lager:debug("MOVED ~p ~p", [X, Y]),
     {json, [?MOVE|Status], State};
+
+parse_action([?ATTACK, Target], State = #state{player = Player}) ->
+    ok = browserquest_srv_player:attack(Player, Target),
+    {ok, [], State};
+
+parse_action([?HIT, Target], State = #state{player = Player}) ->
+    {ok, Return} = browserquest_srv_player:hit(Player, Target),
+    {json, Return, State};
 
 parse_action([?CHAT, Message], State = #state{player = Player}) ->
     {ok, Return} = browserquest_srv_player:chat(Player, Message),
