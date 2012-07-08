@@ -1,4 +1,3 @@
--define(PLAYER_BUCKET, <<"player">>).
 -record(map, {json, attributes}).
 -record(cp, {id, x, y, w, h}).
 -record(mobarea, {id, x, y, w, h, type, nb}).
@@ -16,6 +15,10 @@
 	  target,
 	  local_cache
 	 }).
+
+-define(ZONEWIDTH, 28).
+-define(ZONEHEIGHT, 12).
+-define(PLAYER_BUCKET, <<"player">>).
 
 
 % WS messages

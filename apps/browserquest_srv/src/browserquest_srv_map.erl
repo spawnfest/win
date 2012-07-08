@@ -51,8 +51,8 @@ init([MapName]) ->
     Json = mochijson3:decode(FileBin),
     Height = get_json_value("height", Json),  
     Width = get_json_value("width", Json),
-    ZoneWidth = 28,
-    ZoneHeight = 12,
+    ZoneWidth = ?ZONEWIDTH,
+    ZoneHeight = ?ZONEHEIGHT,
 
     Grid = get_grid(Height, Width, get_json_value("collisions", Json)),
     TileToPos = grid_to_tileid_lookup(Grid),
